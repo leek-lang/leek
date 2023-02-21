@@ -1,3 +1,4 @@
+use core::num;
 use std::{
     collections::VecDeque,
     fmt::{Debug, Display},
@@ -53,7 +54,7 @@ impl PartialEq for LeekToken {
 }
 
 #[derive(Debug, Eq, PartialEq)]
-enum LeekTokenKind {
+pub enum LeekTokenKind {
     // Words
     Keyword,    // leak
     Identifier, // YourMom
@@ -229,9 +230,26 @@ pub struct LexerError {
     position: Position,
 }
 
-#[derive(Debug)]
+impl PartialEq for LexerError {
+    fn eq(&self, other: &Self) -> bool {
+        self.kind == other.kind
+    }
+}
+
+impl From<LexerErrorKind> for LexerError {
+    fn from(kind: LexerErrorKind) -> Self {
+        LexerError {
+            kind,
+            contents: String::new(),
+            position: Position::new(),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub enum LexerErrorKind {
     UnexpectedChar(char),
+    UnclosedWrappedLiteral(LeekTokenKind),
 }
 
 impl Display for LexerError {
@@ -271,8 +289,11 @@ impl Display for LexerError {
         writeln!(f, "{}", "here")?;
         writeln!(f)?;
 
-        match self.kind {
+        match &self.kind {
             LexerErrorKind::UnexpectedChar(c) => writeln!(f, "Unexpected char `{c}`"),
+            LexerErrorKind::UnclosedWrappedLiteral(kind) => {
+                writeln!(f, "Unexpected end of {kind:?}")
+            }
         }
     }
 }
@@ -302,8 +323,82 @@ impl LeekLexer {
         }
     }
 
-    fn read_string(&mut self) -> LeekToken {
-        todo!()
+    /// Read a literal that is wrapped in the provided character
+    /// The wrapper character can be escaped using the backslash character `\`
+    fn read_wrapped_escapable(
+        &mut self,
+        wrapper: char,
+        kind: LeekTokenKind,
+    ) -> Result<LeekToken, LexerError> {
+        let mut text = String::new();
+        let start = self.character_reader.get_position().clone();
+
+        macro_rules! get_next_char {
+            () => {
+                if let Some(c) = self.character_reader.next() {
+                    c
+                } else {
+                    return Err(LexerError {
+                        kind: LexerErrorKind::UnclosedWrappedLiteral(kind),
+                        contents: self.character_reader.get_contents().to_owned(),
+                        position: self.character_reader.get_position().clone(),
+                    });
+                }
+            };
+        }
+
+        macro_rules! peek_nth_char {
+            ($n:expr) => {
+                if let Some(c) = self.character_reader.peek_nth($n) {
+                    c
+                } else {
+                    return Err(LexerError {
+                        kind: LexerErrorKind::UnclosedWrappedLiteral(kind),
+                        contents: self.character_reader.get_contents().to_owned(),
+                        position: self.character_reader.get_position().clone(),
+                    });
+                }
+            };
+        }
+
+        macro_rules! expect_wrapper {
+            () => {
+                let c = get_next_char!();
+
+                if c != wrapper {
+                    unreachable!(
+                        "Not enough chars in character_reader (should be checked in advance)"
+                    );
+                }
+
+                text.push(c);
+            };
+        }
+
+        // First Quote
+        expect_wrapper!();
+
+        // Read until next quote
+        while *peek_nth_char!(0) != wrapper {
+            // If escape char was found, read it in, and read in the escaped char
+            if *peek_nth_char!(0) == '\\' && *peek_nth_char!(1) == wrapper {
+                text.push(get_next_char!());
+            }
+
+            text.push(get_next_char!());
+        }
+
+        // Second Quote
+        expect_wrapper!();
+
+        let end = self.character_reader.get_position().clone();
+
+        Ok(LeekToken {
+            kind,
+            text,
+            start,
+            end,
+        })
     }
 
     /// Advance the lexer while the next character matches the predicate, and return the resulting string
@@ -494,7 +589,8 @@ impl Lexer for LeekLexer {
                 }
 
                 // Literals
-                // TODO: Lex string, char, int, and double literals
+                '"' => self.read_wrapped_escapable('"', LeekTokenKind::StringLiteral)?,
+                '\'' => self.read_wrapped_escapable('\'', LeekTokenKind::CharLiteral)?,
 
                 // Grouping Symbols
                 c @ ('(' | ')' | '[' | ']' | '{' | '}') => {
@@ -610,7 +706,7 @@ mod test {
         reader::FileReader,
     };
 
-    use super::{LeekLexer, Lexer};
+    use super::{LeekLexer, Lexer, LexerError, LexerErrorKind::*};
 
     fn compare_input_to_expected(input: &str, expected_tokens: Vec<LT>) {
         // Collect tokens from lexer
@@ -627,6 +723,20 @@ mod test {
             lexer_tokens, expected_tokens,
             "Lexer tokens did not match expected"
         )
+    }
+
+    fn lex_input(input: &str) -> Result<Vec<LT>, LexerError> {
+        // Collect tokens from lexer
+        let reader = FileReader::from(input.to_owned());
+        let mut lexer = LeekLexer::new(reader);
+
+        let mut lexer_tokens = Vec::new();
+
+        while lexer.has_next()? {
+            lexer_tokens.push(lexer.next()?.unwrap())
+        }
+
+        Ok(lexer_tokens)
     }
 
     #[test]
@@ -758,6 +868,69 @@ mod test {
                 LT::from((Minus, "-")),
                 LT::from((GreaterThan, ">")),
             ],
+        )
+    }
+
+    #[test]
+    fn simple_string() {
+        compare_input_to_expected(
+            r#" "your mom 1""your mom 2" "your mom 3" "#,
+            vec![
+                LT::from((StringLiteral, r#""your mom 1""#)),
+                LT::from((StringLiteral, r#""your mom 2""#)),
+                LT::from((StringLiteral, r#""your mom 3""#)),
+            ],
+        )
+    }
+
+    #[test]
+    fn string_quote_escapes() {
+        compare_input_to_expected(
+            r#" "your mom \"1\"" "your mom 2" "#,
+            vec![
+                LT::from((StringLiteral, r#""your mom \"1\"""#)),
+                LT::from((StringLiteral, r#""your mom 2""#)),
+            ],
+        )
+    }
+
+    #[test]
+    fn unclosed_string() {
+        assert_eq!(
+            lex_input(r#" "this is a string that doesn't have a closing double quote"#),
+            Err(LexerError::from(UnclosedWrappedLiteral(StringLiteral)))
+        )
+    }
+
+    #[test]
+    fn simple_chars() {
+        compare_input_to_expected(
+            r" 'a''b' 'c' ",
+            vec![
+                LT::from((CharLiteral, r"'a'")),
+                LT::from((CharLiteral, r"'b'")),
+                LT::from((CharLiteral, r"'c'")),
+            ],
+        )
+    }
+
+    #[test]
+    fn char_escapes() {
+        compare_input_to_expected(
+            r" 'a''b' '\'' ",
+            vec![
+                LT::from((CharLiteral, r"'a'")),
+                LT::from((CharLiteral, r"'b'")),
+                LT::from((CharLiteral, r"'\''")),
+            ],
+        )
+    }
+
+    #[test]
+    fn unclosed_char() {
+        assert_eq!(
+            lex_input(r#" 'a"#),
+            Err(LexerError::from(UnclosedWrappedLiteral(CharLiteral)))
         )
     }
 }
