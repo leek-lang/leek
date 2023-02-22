@@ -1134,6 +1134,18 @@ mod test {
     }
 
     #[test]
+    fn hex_literal_on_boundary() {
+        compare_input_to_expected(
+            "(0x42069)",
+            vec![
+                LT::from((OpenParen, "(")),
+                LT::from((IntegerLiteral(Hexadecimal), "0x42069")),
+                LT::from((CloseParen, ")")),
+            ],
+        )
+    }
+
+    #[test]
     fn basic_bin_literal() {
         compare_input_to_expected(
             "0b00010011 0b111010100001 0b0",
@@ -1176,6 +1188,18 @@ mod test {
     }
 
     #[test]
+    fn bin_literal_on_boundary() {
+        compare_input_to_expected(
+            "(0b01000101)",
+            vec![
+                LT::from((OpenParen, "(")),
+                LT::from((IntegerLiteral(Binary), "0b01000101")),
+                LT::from((CloseParen, ")")),
+            ],
+        )
+    }
+
+    #[test]
     fn basic_oct_literal() {
         compare_input_to_expected(
             "0o01234567 0o161343 0o00000001",
@@ -1214,6 +1238,18 @@ mod test {
             Err(LexerError::from(UnexpectedCharactersInIntegerLiteral(
                 Octal
             )))
+        )
+    }
+
+    #[test]
+    fn oct_literal_on_boundary() {
+        compare_input_to_expected(
+            "(0o420)",
+            vec![
+                LT::from((OpenParen, "(")),
+                LT::from((IntegerLiteral(Octal), "0o420")),
+                LT::from((CloseParen, ")")),
+            ],
         )
     }
 }
