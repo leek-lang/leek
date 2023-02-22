@@ -1104,6 +1104,18 @@ mod test {
     }
 
     #[test]
+    fn underscores_in_hex_literal() {
+        compare_input_to_expected(
+            "0x__FF__F_F 0x_1_2_3456_789AB_CDE_F_ 0x_01_23_45_67",
+            vec![
+                LT::from((IntegerLiteral(Hexadecimal), "0xFFFF")),
+                LT::from((IntegerLiteral(Hexadecimal), "0x123456789ABCDEF")),
+                LT::from((IntegerLiteral(Hexadecimal), "0x01234567")),
+            ],
+        )
+    }
+
+    #[test]
     fn unexpected_end_of_hex() {
         assert_eq!(
             lex_input(r"0x"),
@@ -1134,6 +1146,18 @@ mod test {
     }
 
     #[test]
+    fn underscores_in_bin_literal() {
+        compare_input_to_expected(
+            "0b_00_0_100_11 0b1_1_101_01000_01_ 0b_0_",
+            vec![
+                LT::from((IntegerLiteral(Binary), "0b00010011")),
+                LT::from((IntegerLiteral(Binary), "0b111010100001")),
+                LT::from((IntegerLiteral(Binary), "0b0")),
+            ],
+        )
+    }
+
+    #[test]
     fn unexpected_end_of_bin() {
         assert_eq!(
             lex_input(r"0b"),
@@ -1155,6 +1179,18 @@ mod test {
     fn basic_oct_literal() {
         compare_input_to_expected(
             "0o01234567 0o161343 0o00000001",
+            vec![
+                LT::from((IntegerLiteral(Octal), "0o01234567")),
+                LT::from((IntegerLiteral(Octal), "0o161343")),
+                LT::from((IntegerLiteral(Octal), "0o00000001")),
+            ],
+        )
+    }
+
+    #[test]
+    fn underscores_in_oct_literal() {
+        compare_input_to_expected(
+            "0o01_234_56_7 0o_16134_3 0o000_00001_",
             vec![
                 LT::from((IntegerLiteral(Octal), "0o01234567")),
                 LT::from((IntegerLiteral(Octal), "0o161343")),
