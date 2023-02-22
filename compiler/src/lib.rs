@@ -13,8 +13,8 @@ pub mod ast;
 pub mod error;
 pub mod lexer;
 pub mod parser;
-pub mod reader;
 pub mod position;
+pub mod reader;
 
 pub fn parse_file(path: PathBuf) -> Result<LeekAst, LeekCompilerError> {
     let reader = FileReader::new(path)?;
