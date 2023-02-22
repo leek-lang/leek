@@ -65,3 +65,9 @@ impl Display for Position {
         }
     }
 }
+
+#[derive(Debug, Clone)]
+pub struct Span {
+    start: Position,
+    end: Position,
+}

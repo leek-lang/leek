@@ -5,9 +5,10 @@ use std::path::PathBuf;
 
 use error::LeekCompilerError;
 use lexer::{LeekLexer, Lexer};
+use parser::LeekParser;
 use reader::FileReader;
 
-use crate::ast::LeekAst;
+use crate::{ast::LeekAst, parser::Parser};
 
 pub mod ast;
 pub mod error;
@@ -18,11 +19,10 @@ pub mod reader;
 
 pub fn parse_file(path: PathBuf) -> Result<LeekAst, LeekCompilerError> {
     let reader = FileReader::new(path)?;
-    let mut lexer = LeekLexer::new(reader);
+    let lexer = LeekLexer::new(reader);
+    let parse_tree = LeekParser::parse(lexer).unwrap();
 
-    while lexer.has_next()? {
-        println!("{}", lexer.next()?.unwrap())
-    }
+    println!("{}", parse_tree);
 
     todo!()
 }
