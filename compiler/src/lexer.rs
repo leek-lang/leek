@@ -46,6 +46,12 @@ impl Debug for LeekToken {
     }
 }
 
+impl Display for LeekToken {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?} => `{}`", self.kind, self.text)
+    }
+}
+
 impl PartialEq for LeekToken {
     fn eq(&self, other: &Self) -> bool {
         self.kind == other.kind && self.text == other.text

@@ -21,7 +21,7 @@ pub fn parse_file(path: PathBuf) -> Result<LeekAst, LeekCompilerError> {
     let mut lexer = LeekLexer::new(reader);
 
     while lexer.has_next()? {
-        println!("Got Token: {:?}", lexer.next()?)
+        println!("{}", lexer.next()?.unwrap())
     }
 
     todo!()

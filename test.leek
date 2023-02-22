@@ -1,13 +1,10 @@
-
-
 fn main() {
     // your mom
     
-    leak a ==|=>== 1 // your dad 
+    leak a = 1
     leak b = 2 
     leak node = Node("text")
 
-    println()
-    
+    println(a)  
 }
 
