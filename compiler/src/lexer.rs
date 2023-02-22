@@ -69,6 +69,9 @@ pub enum IntegerLiteralKind {
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum LeekTokenKind {
+    // Significant Whitespace
+    Newline,
+
     // Words
     Keyword,    // leak
     Identifier, // YourMom
@@ -709,11 +712,6 @@ impl LeekLexer {
         }
     }
 
-    /// Advance the lexer until the next non-whitespace character
-    fn ignore_whitespace(&mut self) {
-        self.ignore_while(|c| c.is_ascii_whitespace())
-    }
-
     /// Requires character to be available
     fn read_single(&mut self, kind: LeekTokenKind) -> LeekToken {
         let start = self.character_reader.get_position().clone();
@@ -838,9 +836,12 @@ impl Lexer for LeekLexer {
             let first_char = *self.character_reader.peek().unwrap();
 
             return Ok(Some(match first_char {
+                // New lines are significant
+                '\n' => self.read_single(LeekTokenKind::Newline),
+
                 // Whitespace
                 a if a.is_ascii_whitespace() => {
-                    self.ignore_whitespace();
+                    self.ignore_while(|c| c.is_ascii_whitespace() && c != '\n');
                     continue;
                 }
 
@@ -1021,29 +1022,30 @@ mod test {
     #[test]
     fn basic_example() {
         compare_input_to_expected(
-            r#"
-                fn main() {       
+            r#"fn main() {       
                     leak node = Node()
                 
                     println()
-                    
-                }
-            "#,
+                }"#,
             vec![
                 LT::from((Keyword, "fn")),
                 LT::from((Identifier, "main")),
                 LT::from((OpenParen, "(")),
                 LT::from((CloseParen, ")")),
                 LT::from((OpenCurlyBracket, "{")),
+                LT::from((Newline, "\n")),
                 LT::from((Keyword, "leak")),
                 LT::from((Identifier, "node")),
                 LT::from((Equals, "=")),
                 LT::from((Identifier, "Node")),
                 LT::from((OpenParen, "(")),
                 LT::from((CloseParen, ")")),
+                LT::from((Newline, "\n")),
+                LT::from((Newline, "\n")),
                 LT::from((Identifier, "println")),
                 LT::from((OpenParen, "(")),
                 LT::from((CloseParen, ")")),
+                LT::from((Newline, "\n")),
                 LT::from((CloseCurlyBracket, "}")),
             ],
         )
@@ -1052,30 +1054,34 @@ mod test {
     #[test]
     fn removes_comments() {
         compare_input_to_expected(
-            r#"
-                // this is a comment
+            r#"// this is a comment
                 fn main() { // this is a comment       
                     leak node = Node()
                     // this is a comment
                     println()
                     // this is a comment
-                }// this is a comment
-            "#,
+                }// this is a comment"#,
             vec![
+                LT::from((Newline, "\n")),
                 LT::from((Keyword, "fn")),
                 LT::from((Identifier, "main")),
                 LT::from((OpenParen, "(")),
                 LT::from((CloseParen, ")")),
                 LT::from((OpenCurlyBracket, "{")),
+                LT::from((Newline, "\n")),
                 LT::from((Keyword, "leak")),
                 LT::from((Identifier, "node")),
                 LT::from((Equals, "=")),
                 LT::from((Identifier, "Node")),
                 LT::from((OpenParen, "(")),
                 LT::from((CloseParen, ")")),
+                LT::from((Newline, "\n")),
+                LT::from((Newline, "\n")),
                 LT::from((Identifier, "println")),
                 LT::from((OpenParen, "(")),
                 LT::from((CloseParen, ")")),
+                LT::from((Newline, "\n")),
+                LT::from((Newline, "\n")),
                 LT::from((CloseCurlyBracket, "}")),
             ],
         )
