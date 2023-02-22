@@ -1,4 +1,5 @@
 #![feature(is_some_and)]
+#![feature(is_ascii_octdigit)]
 
 use std::path::PathBuf;
 
