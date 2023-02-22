@@ -3,24 +3,17 @@ use std::{
     fmt::{Debug, Display},
 };
 
-use crate::{position::Position, reader::CharacterReader};
+use crate::{
+    position::{Position, Span},
+    reader::CharacterReader,
+};
 
 #[allow(dead_code)]
 #[cfg_attr(not(test), derive(Debug))]
 pub struct LeekToken {
-    kind: LeekTokenKind,
-    text: String,
-    start: Position,
-    end: Position,
-}
-
-impl LeekToken {
-    fn is_keyword(word: &str) -> bool {
-        match word {
-            "fn" | "leak" | "hold" | "if" | "else" | "while" | "for" | "yeet" => true,
-            _ => false,
-        }
-    }
+    pub kind: LeekTokenKind,
+    pub text: String,
+    pub span: Span,
 }
 
 impl<T> From<(LeekTokenKind, T)> for LeekToken
@@ -31,8 +24,7 @@ where
         Self {
             kind,
             text: text.into(),
-            start: Position::new(),
-            end: Position::new(),
+            span: Span::from(Position::new()),
         }
     }
 }
@@ -67,14 +59,47 @@ pub enum IntegerLiteralKind {
     Octal,
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
+pub enum KeywordKind {
+    Fn,
+    Struct,
+    Leak,
+    Hold,
+    Perm,
+    If,
+    Else,
+    While,
+    For,
+    Yeet,
+}
+
+impl TryFrom<&String> for KeywordKind {
+    type Error = ();
+
+    fn try_from(value: &String) -> Result<Self, Self::Error> {
+        Ok(match value.as_str() {
+            "fn" => Self::Fn,
+            "struct" => Self::Struct,
+            "leak" => Self::Leak,
+            "hold" => Self::Hold,
+            "if" => Self::If,
+            "else" => Self::Else,
+            "while" => Self::While,
+            "for" => Self::For,
+            "yeet" => Self::Yeet,
+            _ => return Err(()),
+        })
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub enum LeekTokenKind {
     // Significant Whitespace
     Newline,
 
     // Words
-    Keyword,    // leak
-    Identifier, // YourMom
+    Keyword(KeywordKind), // leak
+    Identifier,           // YourMom
 
     // Grouping
     OpenParen,         // (
@@ -338,9 +363,11 @@ impl Display for LexerError {
 /// Represents a generic Lexer object
 pub trait Lexer {
     fn next(&mut self) -> Result<Option<LeekToken>, LexerError>;
-    fn has_next(&mut self) -> Result<bool, LexerError>;
-    fn peek(&mut self) -> Result<Option<&LeekToken>, LexerError>;
-    fn peek_nth(&mut self, n: usize) -> Result<Option<&LeekToken>, LexerError>;
+    fn has_next(&self) -> Result<bool, LexerError>;
+    fn peek(&self) -> Result<Option<&LeekToken>, LexerError>;
+    fn peek_nth(&self, n: usize) -> Result<Option<&LeekToken>, LexerError>;
+    fn get_position(&self) -> &Position;
+    fn get_contents(&self) -> &String;
 }
 
 /// Defines a specific Lexer for Leek
@@ -433,8 +460,7 @@ impl LeekLexer {
         Ok(LeekToken {
             kind,
             text,
-            start,
-            end,
+            span: Span::new(start, end),
         })
     }
 
@@ -565,8 +591,7 @@ impl LeekLexer {
         Ok(LeekToken {
             kind: LeekTokenKind::IntegerLiteral(literal_kind),
             text,
-            start,
-            end,
+            span: Span::new(start, end),
         })
     }
 
@@ -677,8 +702,7 @@ impl LeekLexer {
                 NumberLexingState::Float => LeekTokenKind::FloatLiteral,
             },
             text,
-            start,
-            end,
+            span: Span::new(start, end),
         })
     }
 
@@ -721,8 +745,7 @@ impl LeekLexer {
         LeekToken {
             kind,
             text: c.into(),
-            start,
-            end,
+            span: Span::new(start, end),
         }
     }
 
@@ -771,8 +794,7 @@ impl LeekLexer {
         LeekToken {
             kind,
             text,
-            start,
-            end,
+            span: Span::new(start, end),
         }
     }
 
@@ -856,14 +878,12 @@ impl Lexer for LeekLexer {
                     let word = self.read_while(|c| c.is_ascii_alphanumeric());
 
                     LeekToken {
-                        kind: if LeekToken::is_keyword(&word) {
-                            LeekTokenKind::Keyword
-                        } else {
-                            LeekTokenKind::Identifier
+                        kind: match KeywordKind::try_from(&word) {
+                            Ok(kw_kind) => LeekTokenKind::Keyword(kw_kind),
+                            Err(_) => LeekTokenKind::Identifier,
                         },
                         text: word,
-                        start,
-                        end: self.character_reader.get_position().clone(),
+                        span: Span::new(start, self.character_reader.get_position().clone()),
                     }
                 }
 
@@ -932,57 +952,81 @@ impl Lexer for LeekLexer {
         Ok(None)
     }
 
-    fn peek(&mut self) -> Result<Option<&LeekToken>, LexerError> {
+    fn peek(&self) -> Result<Option<&LeekToken>, LexerError> {
         // Check if more tokens have already been precomputed for us
         if !self.peek_forward.is_empty() {
             // Always returns `Some`
             return Ok(self.peek_forward.front());
         }
 
-        // If there are more tokens
-        if let Some(token) = self.next()? {
-            // Store the token for later usage
-            self.peek_forward.push_back(token);
+        // SAFETY: Allows us to keep the peek interface appear immutable
+        // All raw pointer manipulation is done safely
+        unsafe {
+            let const_ptr = self as *const LeekLexer;
+            let mut_ptr = const_ptr as *mut LeekLexer;
+            let mut_lexer = &mut *mut_ptr;
 
-            // Return a reference to the token
-            Ok(self.peek_forward.front())
-        } else {
-            // Otherwise, return None since there are no tokens to peek
-            Ok(None)
+            // If there are more tokens
+            if let Some(token) = mut_lexer.next()? {
+                // Store the token for later usage
+                mut_lexer.peek_forward.push_back(token);
+
+                // Return a reference to the token
+                Ok(self.peek_forward.front())
+            } else {
+                // Otherwise, return None since there are no tokens to peek
+                Ok(None)
+            }
         }
     }
 
-    fn peek_nth(&mut self, n: usize) -> Result<Option<&LeekToken>, LexerError> {
+    fn peek_nth(&self, n: usize) -> Result<Option<&LeekToken>, LexerError> {
         // Check if `n` tokens have already been precomputed for us
         if !self.peek_forward.len() >= n {
             // Always returns `Some`
             return Ok(self.peek_forward.get(n));
         }
 
-        // Otherwise, precompute the next `n` tokens from the amount we've already computed
-        for _ in self.peek_forward.len()..=n {
-            // Get the next token or return early if none more are found
-            let Some(token) = self.next()? else {
-                return Ok(None);
-            };
+        // SAFETY: Allows us to keep the peek interface appear immutable
+        // All raw pointer manipulation is done safely
+        unsafe {
+            let const_ptr = self as *const LeekLexer;
+            let mut_ptr = const_ptr as *mut LeekLexer;
+            let mut_lexer = &mut *mut_ptr;
 
-            // Store the token for later usage
-            self.peek_forward.push_back(token);
+            // Otherwise, precompute the next `n` tokens from the amount we've already computed
+            for _ in self.peek_forward.len()..=n {
+                // Get the next token or return early if none more are found
+                let Some(token) = mut_lexer.next()? else {
+                    return Ok(None);
+                };
+
+                // Store the token for later usage
+                mut_lexer.peek_forward.push_back(token);
+            }
         }
 
         // Always returns `Some` because we would not have completed the loop otherwise.
         Ok(self.peek_forward.get(n))
     }
 
-    fn has_next(&mut self) -> Result<bool, LexerError> {
+    fn has_next(&self) -> Result<bool, LexerError> {
         Ok(self.peek()?.is_some())
+    }
+
+    fn get_position(&self) -> &Position {
+        self.character_reader.get_position()
+    }
+
+    fn get_contents(&self) -> &String {
+        self.character_reader.get_contents()
     }
 }
 
 #[cfg(test)]
 mod test {
     use crate::{
-        lexer::{IntegerLiteralKind::*, LeekToken as LT, LeekTokenKind::*},
+        lexer::{IntegerLiteralKind::*, KeywordKind::*, LeekToken as LT, LeekTokenKind::*},
         reader::FileReader,
     };
 
@@ -1028,13 +1072,13 @@ mod test {
                     println()
                 }"#,
             vec![
-                LT::from((Keyword, "fn")),
+                LT::from((Keyword(Fn), "fn")),
                 LT::from((Identifier, "main")),
                 LT::from((OpenParen, "(")),
                 LT::from((CloseParen, ")")),
                 LT::from((OpenCurlyBracket, "{")),
                 LT::from((Newline, "\n")),
-                LT::from((Keyword, "leak")),
+                LT::from((Keyword(Leak), "leak")),
                 LT::from((Identifier, "node")),
                 LT::from((Equals, "=")),
                 LT::from((Identifier, "Node")),
@@ -1063,13 +1107,13 @@ mod test {
                 }// this is a comment"#,
             vec![
                 LT::from((Newline, "\n")),
-                LT::from((Keyword, "fn")),
+                LT::from((Keyword(Fn), "fn")),
                 LT::from((Identifier, "main")),
                 LT::from((OpenParen, "(")),
                 LT::from((CloseParen, ")")),
                 LT::from((OpenCurlyBracket, "{")),
                 LT::from((Newline, "\n")),
-                LT::from((Keyword, "leak")),
+                LT::from((Keyword(Leak), "leak")),
                 LT::from((Identifier, "node")),
                 LT::from((Equals, "=")),
                 LT::from((Identifier, "Node")),

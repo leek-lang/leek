@@ -23,6 +23,7 @@ pub struct FileReader {
 }
 
 /// Represents an error when reading in a file
+#[derive(Debug)]
 pub enum FileReadError {
     NotFound(PathBuf),
 }

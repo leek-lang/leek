@@ -1,9 +1,10 @@
-use crate::{lexer::LexerError, reader::FileReadError};
+use crate::{lexer::LexerError, parser::ParserError, reader::FileReadError};
 
+#[derive(Debug)]
 pub enum LeekCompilerError {
     FileReadError(FileReadError),
     LexerError(LexerError),
-    ParserError,
+    ParserError(ParserError),
     AstError,
     TypeCheckerError,
 }
@@ -31,5 +32,11 @@ impl From<FileReadError> for LeekCompilerError {
 impl From<LexerError> for LeekCompilerError {
     fn from(error: LexerError) -> Self {
         LeekCompilerError::LexerError(error)
+    }
+}
+
+impl From<ParserError> for LeekCompilerError {
+    fn from(error: ParserError) -> Self {
+        LeekCompilerError::ParserError(error)
     }
 }

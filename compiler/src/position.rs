@@ -71,3 +71,27 @@ pub struct Span {
     start: Position,
     end: Position,
 }
+
+impl Span {
+    pub fn new(start: Position, end: Position) -> Self {
+        Self { start, end }
+    }
+}
+
+impl From<Position> for Span {
+    fn from(value: Position) -> Self {
+        Self {
+            start: value.clone(),
+            end: value,
+        }
+    }
+}
+
+impl From<&Position> for Span {
+    fn from(value: &Position) -> Self {
+        Self {
+            start: value.clone(),
+            end: value.clone(),
+        }
+    }
+}

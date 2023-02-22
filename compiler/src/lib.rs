@@ -4,7 +4,7 @@
 use std::path::PathBuf;
 
 use error::LeekCompilerError;
-use lexer::{LeekLexer, Lexer};
+use lexer::LeekLexer;
 use parser::LeekParser;
 use reader::FileReader;
 
