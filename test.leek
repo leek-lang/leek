@@ -7,4 +7,3 @@ fn main() {
 
     println(a)  
 }
-

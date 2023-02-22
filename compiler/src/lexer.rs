@@ -5,6 +5,7 @@ use std::{
 
 use crate::{position::Position, reader::CharacterReader};
 
+#[allow(dead_code)]
 #[cfg_attr(not(test), derive(Debug))]
 pub struct LeekToken {
     kind: LeekTokenKind,
@@ -1482,7 +1483,7 @@ mod test {
     }
 
     #[test]
-    fn flaot_end_with_period() {
+    fn float_end_with_period() {
         assert_eq!(
             lex_input(r"420."),
             Err(LexerError::from(UnexpectedEndOfFloatLiteral))
