@@ -259,6 +259,8 @@ pub enum LexerErrorKind {
     UnexpectedChar(char),
     UnclosedWrappedLiteral(LeekTokenKind),
     UnexpectedEndOfFloatLiteral,
+    UnexpectedCharactersInFloatLiteral,
+    UnexpectedExtraPeriodInFloatLiteral,
     UnexpectedEndOfIntegerLiteral(IntegerLiteralKind),
     UnexpectedCharactersInIntegerLiteral(IntegerLiteralKind),
 }
@@ -307,6 +309,12 @@ impl Display for LexerError {
             }
             LexerErrorKind::UnexpectedEndOfFloatLiteral => {
                 writeln!(f, "Unexpected end of float literal")
+            }
+            LexerErrorKind::UnexpectedCharactersInFloatLiteral => {
+                writeln!(f, "Unexpected characters inside float literal")
+            }
+            LexerErrorKind::UnexpectedExtraPeriodInFloatLiteral => {
+                writeln!(f, "Unexpected extra `.` inside float literal")
             }
             LexerErrorKind::UnexpectedEndOfIntegerLiteral(kind) => {
                 writeln!(f, "Unexpected end of {kind:?} integer literal")
@@ -554,7 +562,115 @@ impl LeekLexer {
     }
 
     fn read_dec_int_or_float_literal(&mut self) -> Result<LeekToken, LexerError> {
-        todo!()
+        enum NumberLexingState {
+            Integer,
+            Float,
+        }
+
+        let mut state = NumberLexingState::Integer;
+
+        macro_rules! create_error {
+            ($kind:expr) => {
+                LexerError {
+                    kind: $kind,
+                    contents: self.character_reader.get_contents().to_owned(),
+                    position: self.character_reader.get_position().clone(),
+                }
+            };
+        }
+
+        macro_rules! get_next_char {
+            () => {
+                self.character_reader.next().ok_or_else(|| LexerError {
+                    kind: match state {
+                        NumberLexingState::Integer => {
+                            LexerErrorKind::UnexpectedEndOfIntegerLiteral(
+                                IntegerLiteralKind::Decimal,
+                            )
+                        }
+                        NumberLexingState::Float => LexerErrorKind::UnexpectedEndOfFloatLiteral,
+                    },
+                    contents: self.character_reader.get_contents().to_owned(),
+                    position: self.character_reader.get_position().clone(),
+                })?
+            };
+        }
+
+        let start = self.character_reader.get_position().clone();
+
+        let mut text = String::new();
+
+        // first char
+        text.push(get_next_char!());
+
+        while self.character_reader.has_next() {
+            let peeked_char = *self.character_reader.peek().unwrap();
+
+            match peeked_char {
+                // Ignore underscores
+                '_' => {
+                    self.character_reader.next().unwrap();
+                    continue;
+                }
+                // Stop lexing where we are if we encounter any symbols
+                c if !c.is_ascii_alphanumeric() && c != '.' => {
+                    break;
+                }
+                // Non digit and non `.` characters while lexing
+                c if !c.is_ascii_digit() && c != '.' => {
+                    return Err(create_error!(match state {
+                        NumberLexingState::Integer => {
+                            LexerErrorKind::UnexpectedCharactersInIntegerLiteral(
+                                IntegerLiteralKind::Decimal,
+                            )
+                        }
+                        NumberLexingState::Float =>
+                            LexerErrorKind::UnexpectedCharactersInFloatLiteral,
+                    }));
+                }
+                // Beginning of float, or an error
+                '.' => {
+                    match state {
+                        NumberLexingState::Integer => state = NumberLexingState::Float,
+                        NumberLexingState::Float => {
+                            return Err(create_error!(
+                                LexerErrorKind::UnexpectedExtraPeriodInFloatLiteral
+                            ))
+                        }
+                    }
+                    text.push(get_next_char!());
+                }
+                // Any ascii digit 0-9
+                c if c.is_ascii_digit() => {
+                    text.push(get_next_char!());
+                }
+                // All other character types have already been matched
+                _ => unreachable!(),
+            }
+
+            // TODO: add support for type specifiers like `u32` and `i32`
+        }
+
+        // If we are in float mode, check if there were chars after the `.`
+        if let NumberLexingState::Float = state {
+            if text.ends_with(".") {
+                return Err(create_error!(LexerErrorKind::UnexpectedEndOfFloatLiteral));
+            }
+        }
+
+        let end = self.character_reader.get_position().clone();
+
+        Ok(LeekToken {
+            kind: match state {
+                NumberLexingState::Integer => {
+                    LeekTokenKind::IntegerLiteral(IntegerLiteralKind::Decimal)
+                }
+                NumberLexingState::Float => LeekTokenKind::FloatLiteral,
+            },
+            text,
+            start,
+            end,
+        })
     }
 
     /// Advance the lexer while the next character matches the predicate, and return the resulting string
@@ -1251,5 +1367,120 @@ mod test {
                 LT::from((CloseParen, ")")),
             ],
         )
+    }
+
+    #[test]
+    fn basic_dec_literal() {
+        compare_input_to_expected(
+            "123456789 1 0 2",
+            vec![
+                LT::from((IntegerLiteral(Decimal), "123456789")),
+                LT::from((IntegerLiteral(Decimal), "1")),
+                LT::from((IntegerLiteral(Decimal), "0")),
+                LT::from((IntegerLiteral(Decimal), "2")),
+            ],
+        )
+    }
+
+    #[test]
+    fn underscores_in_dec_literal() {
+        compare_input_to_expected(
+            "1234_5_6789 1_ 0 2_2",
+            vec![
+                LT::from((IntegerLiteral(Decimal), "123456789")),
+                LT::from((IntegerLiteral(Decimal), "1")),
+                LT::from((IntegerLiteral(Decimal), "0")),
+                LT::from((IntegerLiteral(Decimal), "22")),
+            ],
+        )
+    }
+
+    #[test]
+    fn illegal_dec_chars() {
+        assert_eq!(
+            lex_input(r"0123456789abcdef"),
+            Err(LexerError::from(UnexpectedCharactersInIntegerLiteral(
+                Decimal
+            )))
+        )
+    }
+
+    #[test]
+    fn dec_literal_on_boundary() {
+        compare_input_to_expected(
+            "(69)",
+            vec![
+                LT::from((OpenParen, "(")),
+                LT::from((IntegerLiteral(Decimal), "69")),
+                LT::from((CloseParen, ")")),
+            ],
+        )
+    }
+
+    #[test]
+    fn basic_float_literal() {
+        compare_input_to_expected(
+            "0.0 0.1 1.0 420.69",
+            vec![
+                LT::from((FloatLiteral, "0.0")),
+                LT::from((FloatLiteral, "0.1")),
+                LT::from((FloatLiteral, "1.0")),
+                LT::from((FloatLiteral, "420.69")),
+            ],
+        )
+    }
+
+    #[test]
+    fn underscores_in_float_literal() {
+        compare_input_to_expected(
+            "0_.0 0._1 1.0 1337_420.69",
+            vec![
+                LT::from((FloatLiteral, "0.0")),
+                LT::from((FloatLiteral, "0.1")),
+                LT::from((FloatLiteral, "1.0")),
+                LT::from((FloatLiteral, "1337420.69")),
+            ],
+        )
+    }
+
+    #[test]
+    fn illegal_float_chars() {
+        assert_eq!(
+            lex_input(r"420.a69"),
+            Err(LexerError::from(UnexpectedCharactersInFloatLiteral))
+        );
+
+        assert_eq!(
+            lex_input(r"420.6s9"),
+            Err(LexerError::from(UnexpectedCharactersInFloatLiteral))
+        );
+    }
+
+    #[test]
+    fn float_literal_on_boundary() {
+        compare_input_to_expected(
+            "(420.69)",
+            vec![
+                LT::from((OpenParen, "(")),
+                LT::from((FloatLiteral, "420.69")),
+                LT::from((CloseParen, ")")),
+            ],
+        )
+    }
+
+    #[test]
+    fn float_double_period() {
+        assert_eq!(
+            lex_input(r"420.69.1337"),
+            Err(LexerError::from(UnexpectedExtraPeriodInFloatLiteral))
+        );
+    }
+
+    #[test]
+    fn flaot_end_with_period() {
+        assert_eq!(
+            lex_input(r"420."),
+            Err(LexerError::from(UnexpectedEndOfFloatLiteral))
+        );
     }
 }
