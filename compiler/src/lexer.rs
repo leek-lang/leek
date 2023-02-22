@@ -54,6 +54,14 @@ impl PartialEq for LeekToken {
 }
 
 #[derive(Debug, Eq, PartialEq)]
+pub enum IntegerLiteralKind {
+    Decimal,
+    Hexadecimal,
+    Binary,
+    Octal,
+}
+
+#[derive(Debug, Eq, PartialEq)]
 pub enum LeekTokenKind {
     // Words
     Keyword,    // leak
@@ -68,10 +76,10 @@ pub enum LeekTokenKind {
     CloseCurlyBracket, // }
 
     // Literals
-    StringLiteral,  // "your mom"
-    CharLiteral,    // 'd'
-    IntegerLiteral, // 69
-    DoubleLiteral,  // 420.69
+    StringLiteral,                      // "your mom"
+    CharLiteral,                        // 'd'
+    IntegerLiteral(IntegerLiteralKind), // 69
+    FloatLiteral,                       // 420.69
 
     // Single Operators
     Equals,             // =
@@ -250,6 +258,9 @@ impl From<LexerErrorKind> for LexerError {
 pub enum LexerErrorKind {
     UnexpectedChar(char),
     UnclosedWrappedLiteral(LeekTokenKind),
+    UnexpectedEndOfFloatLiteral,
+    UnexpectedEndOfIntegerLiteral(IntegerLiteralKind),
+    UnexpectedCharactersInIntegerLiteral(IntegerLiteralKind),
 }
 
 impl Display for LexerError {
@@ -292,7 +303,16 @@ impl Display for LexerError {
         match &self.kind {
             LexerErrorKind::UnexpectedChar(c) => writeln!(f, "Unexpected char `{c}`"),
             LexerErrorKind::UnclosedWrappedLiteral(kind) => {
-                writeln!(f, "Unexpected end of {kind:?}")
+                writeln!(f, "Unexpected end of wrapped literal: {kind:?}")
+            }
+            LexerErrorKind::UnexpectedEndOfFloatLiteral => {
+                writeln!(f, "Unexpected end of float literal")
+            }
+            LexerErrorKind::UnexpectedEndOfIntegerLiteral(kind) => {
+                writeln!(f, "Unexpected end of {kind:?} integer literal")
+            }
+            LexerErrorKind::UnexpectedCharactersInIntegerLiteral(kind) => {
+                writeln!(f, "Unexpected characters inside {kind:?} integer literal")
             }
         }
     }
@@ -399,6 +419,144 @@ impl LeekLexer {
             start,
             end,
         })
+    }
+
+    /// Reads a generic number literal into either an integer or double
+    fn read_number_literal(&mut self) -> Result<LeekToken, LexerError> {
+        /*
+         * Integer Cases:
+         *
+         * 1. `42069` - 1 or more dec digits
+         * 2. `0xF2AB` - `0x` and then 1 or more hex digits
+         * 3. `0b11010101` - `0b` and then 1 or more binary digits
+         * 4. `0o01234567` - `0o` and then 1 or more octal digits
+         *
+         * 5. `1337u32`, `69i32` - 1 or more dec digits followed by `u<int size>` or `i<int size>` (8, 16, 32, 64, 128, or size)
+         *
+         * If size is not specified, i32 is the default
+         *
+         * Anywhere within the digits, `_` is allowed and is ignored
+         *
+         * Float Cases:
+         *
+         * 1. `0.1375454` - 1 or more dec digits, a `.`, and 1 or more dec digits
+         * 2. `576.1375454f64` - 1 or more dec digits, a `.`, 1 or more dec digits followed by `f<float size>` (32 or 64)
+         *
+         * If size is not specified, f32 is the default
+         */
+
+        // Look ahead to match different literal types
+        return 'number: {
+            if *self.character_reader.peek().unwrap() == '0' {
+                let Some(c) = self.character_reader.peek_nth(1) else {
+                    // Only found `0` and nothing else so parse as int literal `0`
+                    break 'number self.read_dec_int_or_float_literal();
+                };
+
+                match *c {
+                    // Hex int with format `0x<more digits>`
+                    'x' => self.read_hex_int_literal(),
+                    // Bin int with format `0b<more digits>`
+                    'b' => self.read_bin_int_literal(),
+                    // Oct int with format `0o<more digits>`
+                    'o' => self.read_oct_int_literal(),
+                    // Float with format `0.<more digits>`
+                    '.' => self.read_dec_int_or_float_literal(),
+                    // Int with format `0<a><more digits>` or potentially float with format `0<a><more digits?>.<more digits>`
+                    a if a.is_ascii_digit() => self.read_dec_int_or_float_literal(),
+                    // found non digit and non special specifier after leading `0`, so parse the `0` as a single dec digit
+                    _ => self.read_dec_int_or_float_literal(),
+                }
+            } else {
+                // Any dec int or float that does not start with 0
+                self.read_dec_int_or_float_literal()
+            }
+        };
+    }
+
+    fn read_hex_int_literal(&mut self) -> Result<LeekToken, LexerError> {
+        macro_rules! create_error {
+            ($kind:expr) => {
+                LexerError {
+                    kind: $kind,
+                    contents: self.character_reader.get_contents().to_owned(),
+                    position: self.character_reader.get_position().clone(),
+                }
+            };
+        }
+
+        macro_rules! get_next_char {
+            () => {
+                self.character_reader.next().ok_or_else(|| LexerError {
+                    kind: LexerErrorKind::UnexpectedEndOfIntegerLiteral(
+                        IntegerLiteralKind::Hexadecimal,
+                    ),
+                    contents: self.character_reader.get_contents().to_owned(),
+                    position: self.character_reader.get_position().clone(),
+                })?
+            };
+        }
+
+        let start = self.character_reader.get_position().clone();
+
+        let mut text = String::new();
+
+        // `0`
+        text.push(get_next_char!());
+        // `x`
+        text.push(get_next_char!());
+
+        while self.character_reader.has_next() {
+            let peeked_char = *self.character_reader.peek().unwrap();
+
+            if peeked_char == '_' {
+                // Ignore underscores
+                self.character_reader.next().unwrap();
+                continue;
+            } else if !peeked_char.is_ascii_alphanumeric() {
+                // Stop parsing where we are if we encounter any symbols
+                break;
+            }
+
+            // TODO: add support for type specifiers like `u32` and `i32`
+
+            if !peeked_char.is_ascii_hexdigit() {
+                return Err(create_error!(
+                    LexerErrorKind::UnexpectedCharactersInIntegerLiteral(
+                        IntegerLiteralKind::Hexadecimal
+                    )
+                ));
+            }
+
+            text.push(get_next_char!());
+        }
+
+        if text.len() <= 2 {
+            return Err(create_error!(
+                LexerErrorKind::UnexpectedEndOfIntegerLiteral(IntegerLiteralKind::Hexadecimal)
+            ));
+        }
+
+        let end = self.character_reader.get_position().clone();
+
+        Ok(LeekToken {
+            kind: LeekTokenKind::IntegerLiteral(IntegerLiteralKind::Hexadecimal),
+            text,
+            start,
+            end,
+        })
+    }
+
+    fn read_bin_int_literal(&mut self) -> Result<LeekToken, LexerError> {
+        todo!()
+    }
+
+    fn read_oct_int_literal(&mut self) -> Result<LeekToken, LexerError> {
+        todo!()
+    }
+
+    fn read_dec_int_or_float_literal(&mut self) -> Result<LeekToken, LexerError> {
+        todo!()
     }
 
     /// Advance the lexer while the next character matches the predicate, and return the resulting string
@@ -591,6 +749,7 @@ impl Lexer for LeekLexer {
                 // Literals
                 '"' => self.read_wrapped_escapable('"', LeekTokenKind::StringLiteral)?,
                 '\'' => self.read_wrapped_escapable('\'', LeekTokenKind::CharLiteral)?,
+                a if a.is_ascii_digit() => self.read_number_literal()?,
 
                 // Grouping Symbols
                 c @ ('(' | ')' | '[' | ']' | '{' | '}') => {
@@ -702,7 +861,7 @@ impl Lexer for LeekLexer {
 #[cfg(test)]
 mod test {
     use crate::{
-        lexer::{LeekToken as LT, LeekTokenKind::*},
+        lexer::{IntegerLiteralKind::*, LeekToken as LT, LeekTokenKind::*},
         reader::FileReader,
     };
 
@@ -931,6 +1090,34 @@ mod test {
         assert_eq!(
             lex_input(r#" 'a"#),
             Err(LexerError::from(UnclosedWrappedLiteral(CharLiteral)))
+        )
+    }
+
+    #[test]
+    fn basic_hex_literal() {
+        compare_input_to_expected(
+            "0xFFFF 0x123456789ABCDEF 0x01234567",
+            vec![
+                LT::from((IntegerLiteral(Hexadecimal), "0xFFFF")),
+                LT::from((IntegerLiteral(Hexadecimal), "0x123456789ABCDEF")),
+                LT::from((IntegerLiteral(Hexadecimal), "0x01234567")),
+            ],
+        )
+    }
+
+    #[test]
+    fn unexpected_end_of_hex() {
+        assert_eq!(
+            lex_input(r"0x"),
+            Err(LexerError::from(UnexpectedEndOfIntegerLiteral(Hexadecimal)))
+        )
+    }
+
+    #[test]
+    fn illegal_hex_chars() {
+        assert_eq!(
+            lex_input(r"0xasdfgh"),
+            Err(LexerError::from(UnexpectedCharactersInIntegerLiteral(Hexadecimal)))
         )
     }
 }
