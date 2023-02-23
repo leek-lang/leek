@@ -255,7 +255,7 @@ impl LeekParser {
     }
 
     /// Searches the next token ignoring new lines
-    fn peek_nth_after_new_line(&self, n: usize) -> Result<Option<&LeekToken>, LeekCompilerError> {
+    fn peek_nth_ignore_whitespace(&self, n: usize) -> Result<Option<&LeekToken>, LeekCompilerError> {
         let mut peek_index = 0;
         let mut non_nl_tokens = 0;
 
@@ -284,8 +284,8 @@ impl LeekParser {
     }
 
     /// Peeks the nth token or returns an error if there are none left
-    fn peek_nth_after_new_line_expect(&self, n: usize) -> Result<&LeekToken, LeekCompilerError> {
-        self.peek_nth_after_new_line(n)?
+    fn peek_nth_ignore_whitespace_expect(&self, n: usize) -> Result<&LeekToken, LeekCompilerError> {
+        self.peek_nth_ignore_whitespace(n)?
             .ok_or_else(|| self.create_error(ParserErrorKind::UnexpectedEndOfInput))
     }
 
@@ -444,7 +444,7 @@ impl LeekParser {
         children.push(self.parse_function_parameters()?);
 
         if self
-            .peek_nth_after_new_line(0)?
+            .peek_nth_ignore_whitespace(0)?
             .is_some_and(|token| token.kind == LeekTokenKind::Arrow)
         {
             self.bleed_whitespace()?;
@@ -453,7 +453,7 @@ impl LeekParser {
 
         let mut kind = ParseTreeNonTerminalKind::FunctionDeclaration;
 
-        if let Some(token) = self.peek_nth_after_new_line(0)? {
+        if let Some(token) = self.peek_nth_ignore_whitespace(0)? {
             if token.kind == LeekTokenKind::OpenCurlyBracket {
                 kind = ParseTreeNonTerminalKind::FunctionDefinition;
 
@@ -618,7 +618,7 @@ impl LeekParser {
             }
             k @ LeekTokenKind::Identifier => {
                 // Could be assignment or function call
-                match self.peek_nth_after_new_line_expect(1)?.kind {
+                match self.peek_nth_ignore_whitespace_expect(1)?.kind {
                     LeekTokenKind::OpenParen => {
                         children.push(self.parse_function_call_expression()?)
                     }
@@ -700,7 +700,7 @@ impl LeekParser {
             | LeekTokenKind::IntegerLiteral(_)
             | LeekTokenKind::FloatLiteral => self.parse_atom()?,
             k if k.is_unary_operator() => self.parse_unary_expression()?,
-            LeekTokenKind::Identifier => match self.peek_nth_after_new_line_expect(1)?.kind {
+            LeekTokenKind::Identifier => match self.peek_nth_ignore_whitespace_expect(1)?.kind {
                 LeekTokenKind::OpenParen => self.parse_function_call_expression()?,
                 _ => self.parse_atom()?,
             },
@@ -726,7 +726,7 @@ impl LeekParser {
         };
 
         if self
-            .peek_nth_after_new_line_expect(0)?
+            .peek_nth_ignore_whitespace_expect(0)?
             .kind
             .is_binary_operator()
         {
@@ -925,7 +925,7 @@ impl LeekParser {
         children.push(terminal!(self.next_expect_is(LeekTokenKind::Identifier)?));
 
         if self
-            .peek_nth_after_new_line(0)?
+            .peek_nth_ignore_whitespace(0)?
             .is_some_and(|token| token.kind == LeekTokenKind::OpenCurlyBracket)
         {
             self.bleed_whitespace()?;
@@ -953,7 +953,7 @@ impl LeekParser {
         ));
         self.bleed_whitespace()?;
 
-        if self.peek_nth_after_new_line_expect(0)?.kind != LeekTokenKind::CloseCurlyBracket {
+        if self.peek_nth_ignore_whitespace_expect(0)?.kind != LeekTokenKind::CloseCurlyBracket {
             // Non `}`, so parse at last one type association
             children.push(self.parse_type_association()?);
 
