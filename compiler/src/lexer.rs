@@ -76,7 +76,7 @@ pub enum KeywordKind {
 impl TryFrom<&String> for KeywordKind {
     type Error = ();
 
-    fn try_from(value: &String) -> Result<Self, Self::Error> {        
+    fn try_from(value: &String) -> Result<Self, Self::Error> {
         Ok(match value.as_str() {
             "fn" => Self::Fn,
             "struct" => Self::Struct,

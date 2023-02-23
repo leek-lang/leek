@@ -10,7 +10,7 @@ fn main() {
      leak a = 1
      a += 1
      leak b = a + a
-     leak node = Node("text")
+     // leak node = BinaryTreeNode::new("text")
 
      println(a)  
 }
@@ -26,3 +26,27 @@ struct BinaryTreeNode {
     right: BinaryTreeNode
     data: i32
 }
+
+fn BinaryTreeNode::new() -> BinaryTreeNode {
+    yeet null
+    
+    // BinaryTreeNode {
+    //     left: null,
+    //     right: null,
+    //     data: 0
+    // }
+}
+
+// fn BinaryTreeNode::invert(this) {
+//     leak tmp = this.left
+//     this.left = this.right
+//     this.right = tmp
+// 
+//     if this.left {
+//         this.left.invert()
+//     }
+// 
+//     if this.right {
+//         this.right.invert()
+//     }
+// }
