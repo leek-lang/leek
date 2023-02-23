@@ -487,10 +487,7 @@ impl LeekParser {
 
     /// FunctionParameters ::
     ///     `(`
-    ///          (
-    ///              TypeAssociation
-    ///              | (TypeAssociation `,`)* TypeAssociation)
-    ///          )?
+    ///          (TypeAssociation `,`)* TypeAssociation
     ///      `)`
     fn parse_function_parameters(&mut self) -> Result<ParseTreeNode, LeekCompilerError> {
         let mut children = Vec::new();
@@ -498,7 +495,21 @@ impl LeekParser {
         children.push(terminal!(self.next_expect_is(LeekTokenKind::OpenParen)?));
         self.bleed_whitespace()?;
 
-        // TODO: Support typed function parameters
+        match self.peek_expect()?.kind {
+            LeekTokenKind::CloseParen => {}
+            _ => {
+                children.push(self.parse_type_association()?);
+                self.bleed_whitespace()?;
+
+                while self.peek_expect_is(LeekTokenKind::Comma)? {
+                    children.push(terminal!(self.next_expect_is(LeekTokenKind::Comma)?));
+                    self.bleed_whitespace()?;
+                    children.push(self.parse_type_association()?);
+                    self.bleed_whitespace()?;
+                }
+            }
+        }
+        self.bleed_whitespace()?;
 
         children.push(terminal!(self.next_expect_is(LeekTokenKind::CloseParen)?));
 
@@ -1062,7 +1073,7 @@ mod test {
     fn basic_program() {
         compare_input_to_expected(
             r#"
-            fn add() -> i32
+            fn add(a: i32, b: i32) -> i32
 
             fn main() {
                 leak a = 1
@@ -1084,6 +1095,35 @@ mod test {
                                 ParseTreeNonTerminalKind::FunctionParameters,
                                 vec![
                                     terminal_from!(LeekTokenKind::OpenParen, "("),
+                                    non_terminal!(
+                                        ParseTreeNonTerminalKind::TypeAssociation,
+                                        vec![
+                                            terminal_from!(LeekTokenKind::Identifier, "a"),
+                                            terminal_from!(LeekTokenKind::Colon, ":"),
+                                            non_terminal!(
+                                                ParseTreeNonTerminalKind::Type,
+                                                vec![terminal_from!(
+                                                    LeekTokenKind::Identifier,
+                                                    "i32"
+                                                ),]
+                                            ),
+                                        ]
+                                    ),
+                                    terminal_from!(LeekTokenKind::Comma, ","),
+                                    non_terminal!(
+                                        ParseTreeNonTerminalKind::TypeAssociation,
+                                        vec![
+                                            terminal_from!(LeekTokenKind::Identifier, "b"),
+                                            terminal_from!(LeekTokenKind::Colon, ":"),
+                                            non_terminal!(
+                                                ParseTreeNonTerminalKind::Type,
+                                                vec![terminal_from!(
+                                                    LeekTokenKind::Identifier,
+                                                    "i32"
+                                                ),]
+                                            ),
+                                        ]
+                                    ),
                                     terminal_from!(LeekTokenKind::CloseParen, ")"),
                                 ]
                             ),
