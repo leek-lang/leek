@@ -20,9 +20,9 @@ pub mod reader;
 pub fn parse_file(path: PathBuf) -> Result<LeekAst, LeekCompilerError> {
     let reader = FileReader::new(path)?;
     let lexer = LeekLexer::new(reader);
-    let parse_tree = LeekParser::parse(lexer).unwrap();
+    let parse_tree = LeekParser::parse(lexer)?;
 
     println!("{}", parse_tree);
 
-    todo!()
+    todo!("build ast from parse tree")
 }

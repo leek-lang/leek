@@ -70,7 +70,7 @@ pub enum KeywordKind {
     Else,
     While,
     For,
-    Yeet,
+    Yeet
 }
 
 impl TryFrom<&String> for KeywordKind {
@@ -172,6 +172,69 @@ pub enum LeekTokenKind {
 }
 
 impl LeekTokenKind {
+    pub fn is_assignment_operator(&self) -> bool {
+        match self {
+            Self::Equals
+            | Self::PlusEquals
+            | Self::MinusEquals
+            | Self::MultiplyEquals
+            | Self::DivideEquals
+            | Self::ModuloEquals
+            | Self::BitwiseNotEquals
+            | Self::BitwiseXorEquals
+            | Self::BitwiseOrEquals
+            | Self::BitwiseAndEquals
+            | Self::LogicalNotEquals
+            | Self::ExponentiationEquals
+            | Self::LeftShiftEquals
+            | Self::RightShiftEquals
+            | Self::LogicalOrEquals
+            | Self::LogicalAndEquals => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_unary_operator(&self) -> bool {
+        match self {
+            Self::BitwiseNot | Self::LogicalNot | Self::Asterisk => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_binary_operator(&self) -> bool {
+        match self {
+            Self::DoubleEquals
+            | Self::LessThan
+            | Self::LessThanOrEqual
+            | Self::GreaterThan
+            | Self::GreaterThanOrEqual
+            | Self::Plus
+            | Self::Minus
+            | Self::Asterisk
+            | Self::Divide
+            | Self::Modulo
+            | Self::BitwiseXor
+            | Self::BitwiseOr
+            | Self::BitwiseAnd
+            | Self::Exponentiation
+            | Self::LeftShift
+            | Self::RightShift
+            | Self::LogicalOr
+            | Self::LogicalAnd => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_literal(&self) -> bool {
+        match self {
+            Self::CharLiteral
+            | Self::StringLiteral
+            | Self::FloatLiteral
+            | Self::IntegerLiteral(_) => true,
+            _ => false,
+        }
+    }
+
     fn grouping_symbol_from(c: char) -> LeekTokenKind {
         match c {
             '(' => Self::OpenParen,
@@ -841,16 +904,8 @@ impl LeekLexer {
             self.read_multi(&c.to_string().repeat(2), normal)
         }
     }
-}
 
-impl Lexer for LeekLexer {
-    fn next(&mut self) -> Result<Option<LeekToken>, LexerError> {
-        // Check if more tokens have already been precomputed for us
-        if !self.peek_forward.is_empty() {
-            // Always returns `Some`
-            return Ok(self.peek_forward.pop_front());
-        }
-
+    fn read_next_token(&mut self) -> Result<Option<LeekToken>, LexerError> {
         while self.character_reader.has_next() {
             let start = self.character_reader.get_position().clone();
 
@@ -951,6 +1006,18 @@ impl Lexer for LeekLexer {
         // then we will never return more tokens
         Ok(None)
     }
+}
+
+impl Lexer for LeekLexer {
+    fn next(&mut self) -> Result<Option<LeekToken>, LexerError> {
+        // Check if more tokens have already been precomputed for us
+        if !self.peek_forward.is_empty() {
+            // Always returns `Some`
+            return Ok(self.peek_forward.pop_front());
+        }
+
+        self.read_next_token()
+    }
 
     fn peek(&self) -> Result<Option<&LeekToken>, LexerError> {
         // Check if more tokens have already been precomputed for us
@@ -982,7 +1049,7 @@ impl Lexer for LeekLexer {
 
     fn peek_nth(&self, n: usize) -> Result<Option<&LeekToken>, LexerError> {
         // Check if `n` tokens have already been precomputed for us
-        if !self.peek_forward.len() >= n {
+        if self.peek_forward.len() > n {
             // Always returns `Some`
             return Ok(self.peek_forward.get(n));
         }
@@ -994,10 +1061,10 @@ impl Lexer for LeekLexer {
             let mut_ptr = const_ptr as *mut LeekLexer;
             let mut_lexer = &mut *mut_ptr;
 
-            // Otherwise, precompute the next `n` tokens from the amount we've already computed
+            // Otherwise, pre-compute the next `n` tokens from the amount we've already computed
             for _ in self.peek_forward.len()..=n {
                 // Get the next token or return early if none more are found
-                let Some(token) = mut_lexer.next()? else {
+                let Some(token) = mut_lexer.read_next_token()? else {
                     return Ok(None);
                 };
 

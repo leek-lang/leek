@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::{lexer::LexerError, parser::ParserError, reader::FileReadError};
 
 #[derive(Debug)]
@@ -12,14 +14,26 @@ pub enum LeekCompilerError {
 impl LeekCompilerError {
     /// Should print to the stderr and exit with a non-zero exit code
     pub fn report(&self) -> ! {
+        eprintln!("{self}");
+
+        std::process::exit(1);
+    }
+}
+
+impl Display for LeekCompilerError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            LeekCompilerError::FileReadError(e) => eprint!("File Read Error: \n{e}"),
-            LeekCompilerError::LexerError(e) => eprint!("Lexer Error: \n{e}"),
+            LeekCompilerError::FileReadError(e) => write!(f, "File Read Error: \n{e}"),
+            LeekCompilerError::LexerError(e) => write!(f, "Lexer Error: \n{e}"),
+            LeekCompilerError::ParserError(e) => {
+                write!(
+                    f,
+                    "Parser Error: \n{e}\n=================================\n\n{e:#?}\n"
+                )
+            }
 
             _ => todo!("Implement other error messages"),
         }
-
-        std::process::exit(1);
     }
 }
 

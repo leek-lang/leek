@@ -76,6 +76,14 @@ impl Span {
     pub fn new(start: Position, end: Position) -> Self {
         Self { start, end }
     }
+
+    pub fn start(&self) -> &Position {
+        &self.start
+    }
+
+    pub fn end(&self) -> &Position {
+        &self.end
+    }
 }
 
 impl From<Position> for Span {

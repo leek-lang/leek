@@ -1,7 +1,20 @@
 fn main() {
-    leak a = 1
-    leak b = 2 
-    leak node = Node("text")
+     leak a = 1
+     a += 1
+     leak b = a + a
+     leak node = Node("text")
 
-    println(a)  
+     println(a)  
+}
+
+struct EmptyStruct
+
+struct SomeStruct {
+
+}
+
+struct BinaryTreeNode {
+    left: BinaryTreeNode
+    right: BinaryTreeNode
+    data: i32
 }
