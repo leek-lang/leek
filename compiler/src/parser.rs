@@ -984,7 +984,11 @@ impl LeekParser {
         let mut children = Vec::new();
 
         children.push(terminal!(self.next_expect_is(LeekTokenKind::Identifier)?));
+        self.bleed_whitespace()?;
+
         children.push(terminal!(self.next_expect_is(LeekTokenKind::Colon)?));
+        self.bleed_whitespace()?;
+
         children.push(self.parse_type()?);
 
         Ok(ParseTreeNode::NonTerminal(ParseTreeNodeNonTerminal {
