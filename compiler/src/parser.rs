@@ -1013,13 +1013,69 @@ impl LeekParser {
     /// ConstantVariableDeclaration ::
     ///     `perm` identifier `:` Type `=` Expression
     fn parse_constant_variable_declaration(&mut self) -> Result<ParseTreeNode, LeekCompilerError> {
-        todo!("parse constant variable declaration")
+        let mut children = Vec::new();
+
+        children.push(terminal!(
+            self.next_expect_is(LeekTokenKind::Keyword(KeywordKind::Perm))?
+        ));
+        self.bleed_whitespace()?;
+
+        children.push(terminal!(self.next_expect_is(LeekTokenKind::Identifier)?));
+        self.bleed_whitespace()?;
+
+        children.push(terminal!(self.next_expect_is(LeekTokenKind::Colon)?));
+        self.bleed_whitespace()?;
+
+        children.push(self.parse_type()?);
+        self.bleed_whitespace()?;
+
+        children.push(terminal!(self.next_expect_is(LeekTokenKind::Equals)?));
+        self.bleed_whitespace()?;
+
+        children.push(self.parse_expression()?);
+
+        if self.lexer.has_next()? {
+            children.push(terminal!(self.next_expect_is(LeekTokenKind::Newline)?));
+        }
+
+        Ok(ParseTreeNode::NonTerminal(ParseTreeNodeNonTerminal {
+            kind: ParseTreeNonTerminalKind::ConstantVariableDeclaration,
+            children,
+        }))
     }
 
     /// StaticVariableDeclaration ::
     ///     `hold` identifier `:` Type `=` Expression
     fn parse_static_variable_declaration(&mut self) -> Result<ParseTreeNode, LeekCompilerError> {
-        todo!("parse static variable declaration")
+        let mut children = Vec::new();
+
+        children.push(terminal!(
+            self.next_expect_is(LeekTokenKind::Keyword(KeywordKind::Hold))?
+        ));
+        self.bleed_whitespace()?;
+
+        children.push(terminal!(self.next_expect_is(LeekTokenKind::Identifier)?));
+        self.bleed_whitespace()?;
+
+        children.push(terminal!(self.next_expect_is(LeekTokenKind::Colon)?));
+        self.bleed_whitespace()?;
+
+        children.push(self.parse_type()?);
+        self.bleed_whitespace()?;
+
+        children.push(terminal!(self.next_expect_is(LeekTokenKind::Equals)?));
+        self.bleed_whitespace()?;
+
+        children.push(self.parse_expression()?);
+
+        if self.lexer.has_next()? {
+            children.push(terminal!(self.next_expect_is(LeekTokenKind::Newline)?));
+        }
+
+        Ok(ParseTreeNode::NonTerminal(ParseTreeNodeNonTerminal {
+            kind: ParseTreeNonTerminalKind::StaticVariableDeclaration,
+            children,
+        }))
     }
 
     /// Internal method to parse all the tokens from the internal lexer
@@ -1077,6 +1133,12 @@ mod test {
     fn basic_program() {
         compare_input_to_expected(
             r#"
+            perm PI: f32 = 3.1415926535
+            perm E: f32 = 2.178
+            perm THREE: u8 = 0x03
+            
+            hold state: u8 = 0b0001
+
             fn add(a: i32, b: i32) -> i32
 
             fn main() {
@@ -1090,6 +1152,114 @@ mod test {
             non_terminal!(
                 ParseTreeNonTerminalKind::Program,
                 vec![
+                    non_terminal!(
+                        ParseTreeNonTerminalKind::ConstantVariableDeclaration,
+                        vec![
+                            terminal_from!(LeekTokenKind::Keyword(KeywordKind::Perm), "perm"),
+                            terminal_from!(LeekTokenKind::Identifier, "PI"),
+                            terminal_from!(LeekTokenKind::Colon, ":"),
+                            non_terminal!(
+                                ParseTreeNonTerminalKind::Type,
+                                vec![terminal_from!(
+                                    LeekTokenKind::Identifier,
+                                    "f32"
+                                ),]
+                            ),
+                            terminal_from!(LeekTokenKind::Equals, "="),
+                            non_terminal!(
+                                ParseTreeNonTerminalKind::Expression,
+                                vec![non_terminal!(
+                                    ParseTreeNonTerminalKind::Atom,
+                                    vec![terminal_from!(
+                                        LeekTokenKind::FloatLiteral,
+                                        "3.1415926535"
+                                    ),]
+                                ),]
+                            ),
+                            terminal_from!(LeekTokenKind::Newline, "\n"),
+                        ]
+                    ),
+                    non_terminal!(
+                        ParseTreeNonTerminalKind::ConstantVariableDeclaration,
+                        vec![
+                            terminal_from!(LeekTokenKind::Keyword(KeywordKind::Perm), "perm"),
+                            terminal_from!(LeekTokenKind::Identifier, "E"),
+                            terminal_from!(LeekTokenKind::Colon, ":"),
+                            non_terminal!(
+                                ParseTreeNonTerminalKind::Type,
+                                vec![terminal_from!(
+                                    LeekTokenKind::Identifier,
+                                    "f32"
+                                ),]
+                            ),
+                            terminal_from!(LeekTokenKind::Equals, "="),
+                            non_terminal!(
+                                ParseTreeNonTerminalKind::Expression,
+                                vec![non_terminal!(
+                                    ParseTreeNonTerminalKind::Atom,
+                                    vec![terminal_from!(
+                                        LeekTokenKind::FloatLiteral,
+                                        "2.178"
+                                    ),]
+                                ),]
+                            ),
+                            terminal_from!(LeekTokenKind::Newline, "\n"),
+                        ]
+                    ),
+                    non_terminal!(
+                        ParseTreeNonTerminalKind::ConstantVariableDeclaration,
+                        vec![
+                            terminal_from!(LeekTokenKind::Keyword(KeywordKind::Perm), "perm"),
+                            terminal_from!(LeekTokenKind::Identifier, "THREE"),
+                            terminal_from!(LeekTokenKind::Colon, ":"),
+                            non_terminal!(
+                                ParseTreeNonTerminalKind::Type,
+                                vec![terminal_from!(
+                                    LeekTokenKind::Identifier,
+                                    "u8"
+                                ),]
+                            ),
+                            terminal_from!(LeekTokenKind::Equals, "="),
+                            non_terminal!(
+                                ParseTreeNonTerminalKind::Expression,
+                                vec![non_terminal!(
+                                    ParseTreeNonTerminalKind::Atom,
+                                    vec![terminal_from!(
+                                        LeekTokenKind::IntegerLiteral(IntegerLiteralKind::Hexadecimal),
+                                        "0x03"
+                                    ),]
+                                ),]
+                            ),
+                            terminal_from!(LeekTokenKind::Newline, "\n"),
+                        ]
+                    ),
+                    non_terminal!(
+                        ParseTreeNonTerminalKind::StaticVariableDeclaration,
+                        vec![
+                            terminal_from!(LeekTokenKind::Keyword(KeywordKind::Hold), "hold"),
+                            terminal_from!(LeekTokenKind::Identifier, "state"),
+                            terminal_from!(LeekTokenKind::Colon, ":"),
+                            non_terminal!(
+                                ParseTreeNonTerminalKind::Type,
+                                vec![terminal_from!(
+                                    LeekTokenKind::Identifier,
+                                    "u8"
+                                ),]
+                            ),
+                            terminal_from!(LeekTokenKind::Equals, "="),
+                            non_terminal!(
+                                ParseTreeNonTerminalKind::Expression,
+                                vec![non_terminal!(
+                                    ParseTreeNonTerminalKind::Atom,
+                                    vec![terminal_from!(
+                                        LeekTokenKind::IntegerLiteral(IntegerLiteralKind::Binary),
+                                        "0b0001"
+                                    ),]
+                                ),]
+                            ),
+                            terminal_from!(LeekTokenKind::Newline, "\n"),
+                        ]
+                    ),
                     non_terminal!(
                         ParseTreeNonTerminalKind::FunctionDeclaration,
                         vec![

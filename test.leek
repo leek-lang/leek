@@ -1,3 +1,9 @@
+perm PI: f32 = 3.1415926535
+perm E: f32 = 2.178
+perm THREE: u8 = 0x03
+
+hold state: u8 = 0b0001
+
 fn add(a: i32, b: i32) -> i32
 
 fn main() {

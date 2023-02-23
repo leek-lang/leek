@@ -70,18 +70,19 @@ pub enum KeywordKind {
     Else,
     While,
     For,
-    Yeet
+    Yeet,
 }
 
 impl TryFrom<&String> for KeywordKind {
     type Error = ();
 
-    fn try_from(value: &String) -> Result<Self, Self::Error> {
+    fn try_from(value: &String) -> Result<Self, Self::Error> {        
         Ok(match value.as_str() {
             "fn" => Self::Fn,
             "struct" => Self::Struct,
             "leak" => Self::Leak,
             "hold" => Self::Hold,
+            "perm" => Self::Perm,
             "if" => Self::If,
             "else" => Self::Else,
             "while" => Self::While,
