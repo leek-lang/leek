@@ -82,6 +82,7 @@ pub enum ParseTreeNonTerminalKind {
     Program,
     FunctionDeclaration,
     FunctionDefinition,
+    FunctionReturnType,
     FunctionParameters,
     Block,
     Statement,
@@ -422,10 +423,10 @@ impl LeekParser {
     }
 
     /// FunctionDefinition ::
-    ///     `fn` identifier FunctionParameters (`->` Type)? Newline* Block
+    ///     `fn` identifier FunctionParameters FunctionReturnType? Block
     ///
     /// FunctionDeclaration ::
-    ///     `fn` identifier FunctionParameters (`->` Type)? Newline
+    ///     `fn` identifier FunctionParameters FunctionReturnType? Newline
     ///   
     fn parse_function_declaration_or_definition(
         &mut self,
@@ -441,21 +442,45 @@ impl LeekParser {
         self.bleed_whitespace()?;
 
         children.push(self.parse_function_parameters()?);
-        self.bleed_whitespace()?;
 
-        // TODO: Parse return type
+        if self
+            .peek_nth_after_new_line(0)?
+            .is_some_and(|token| token.kind == LeekTokenKind::Arrow)
+        {
+            self.bleed_whitespace()?;
+            children.push(self.parse_return_type()?);
+        }
 
         let mut kind = ParseTreeNonTerminalKind::FunctionDeclaration;
 
-        if let Some(token) = self.lexer.peek()? {
+        if let Some(token) = self.peek_nth_after_new_line(0)? {
             if token.kind == LeekTokenKind::OpenCurlyBracket {
                 kind = ParseTreeNonTerminalKind::FunctionDefinition;
+
+                self.bleed_whitespace()?;
                 children.push(self.parse_block()?);
+            } else {
+                children.push(terminal!(self.next_expect_is(LeekTokenKind::Newline)?));
             }
         }
 
         Ok(ParseTreeNode::NonTerminal(ParseTreeNodeNonTerminal {
             kind,
+            children,
+        }))
+    }
+
+    /// FunctionReturnType ::
+    ///     `->` Type
+    fn parse_return_type(&mut self) -> Result<ParseTreeNode, LeekCompilerError> {
+        let mut children = Vec::new();
+
+        children.push(terminal!(self.next_expect_is(LeekTokenKind::Arrow)?));
+
+        children.push(self.parse_type()?);
+
+        Ok(ParseTreeNode::NonTerminal(ParseTreeNodeNonTerminal {
+            kind: ParseTreeNonTerminalKind::FunctionReturnType,
             children,
         }))
     }
@@ -476,7 +501,6 @@ impl LeekParser {
         // TODO: Support typed function parameters
 
         children.push(terminal!(self.next_expect_is(LeekTokenKind::CloseParen)?));
-        self.bleed_whitespace()?;
 
         Ok(ParseTreeNode::NonTerminal(ParseTreeNodeNonTerminal {
             kind: ParseTreeNonTerminalKind::FunctionParameters,
