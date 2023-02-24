@@ -1144,6 +1144,8 @@ impl LeekParser {
 
 #[cfg(test)]
 mod test {
+    use ansi_term::Color;
+
     use crate::{
         lexer::{IntegerLiteralKind, KeywordKind, LeekLexer, LeekToken, LeekTokenKind},
         reader::FileReader,
@@ -1160,12 +1162,25 @@ mod test {
         let parse_tree =
             LeekParser::parse(lexer).unwrap_or_else(|e| panic!("Could not parse input: \n{e}"));
 
-        // TODO: better test error reporting (https://crates.io/crates/diff)
+        if parse_tree == expected_tree {
+            return;
+        }
 
-        assert_eq!(
-            parse_tree, expected_tree,
-            "Parse tree did not match expected"
-        );
+        let mut output = String::new();
+
+        for diff in diff::lines(&format!("{expected_tree}"), &format!("{parse_tree}")) {
+            match diff {
+                diff::Result::Left(l) => {
+                    output.push_str(&format!("{}", Color::Red.paint(format!("-{}\n", l))))
+                }
+                diff::Result::Both(l, _) => output.push_str(&format!(" {}\n", l)),
+                diff::Result::Right(r) => {
+                    output.push_str(&format!("{}", Color::Green.paint(format!("+{}\n", r))))
+                }
+            }
+        }
+
+        panic!("Parse tree did not match expected: \n{output}");
     }
 
     macro_rules! terminal_from {
@@ -1544,7 +1559,7 @@ mod test {
     fn parse_structs() {
         compare_input_to_expected(
             r#"
-            struct EmptyStruct
+            struct EmptyStruct 
 
             struct SomeStruct {
             
