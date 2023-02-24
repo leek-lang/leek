@@ -1160,6 +1160,8 @@ mod test {
         let parse_tree =
             LeekParser::parse(lexer).unwrap_or_else(|e| panic!("Could not parse input: \n{e}"));
 
+        // TODO: better test error reporting (https://crates.io/crates/diff)
+
         assert_eq!(
             parse_tree, expected_tree,
             "Parse tree did not match expected"
