@@ -1,0 +1,25 @@
+{
+  "name": "leek-analyzer",
+  "displayName": "leek-analyzer",
+  "description": "Language support for Leek",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [{
+      "id": "leek",
+      "aliases": ["Leek", "leek"],
+      "extensions": [".leek"],
+      "configuration": "./language-configuration.json"
+    }],
+    "grammars": [{
+      "language": "leek",
+      "scopeName": "source.leek",
+      "path": "./syntaxes/leek.tmLanguage.json"
+    }]
+  }
+}

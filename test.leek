@@ -4,15 +4,15 @@ perm THREE: u8 = 0x03
 
 hold state: u8 = 0b0001
 
-fn add(a: i32, b: i32) -> i32
+fn add(a: i32, b: i32) -> std::Result
 
-fn main() {
+fn main() -> i32 {
      leak a = 1
      a += 1
      leak b = a + a
-     // leak node = BinaryTreeNode::new("text")
+     leak node = BinaryTreeNode::new("text", a)
 
-     println(a)  
+     println(a)
 }
 
 struct EmptyStruct
