@@ -1,0 +1,14 @@
+struct Person {
+    name: String
+    age: i32
+}
+
+fn main() {
+    leak alice = Person {
+        name: "Alice"
+        age: 18
+    }
+
+    // Prints "Alice is 18 years old."
+    println("{} is {} year old.", alice.name, alice.age)
+}

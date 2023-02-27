@@ -1,0 +1,11 @@
+fn main() {
+    leak a = 0
+
+    // Prints "0"
+    println("{}", a)
+
+    a = 1
+
+    // Prints "1"
+    println("{}", a)
+}

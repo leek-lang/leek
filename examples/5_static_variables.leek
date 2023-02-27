@@ -1,0 +1,20 @@
+hold NUM: i32 = 0
+
+fn mutate() {
+    NUM += 1
+}
+
+fn main() {
+    // Prints "0"
+    println("{}", NUM)
+
+    mutate()
+
+    // Prints "1"
+    println("{}", NUM)
+
+    mutate()
+
+    // Prints "2"
+    println("{}", NUM)
+}

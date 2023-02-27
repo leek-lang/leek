@@ -1,0 +1,8 @@
+fn add(a: i32, b: i32) -> i32 {
+    yeet a + b
+}
+
+fn main() {
+    // Prints "3"
+    println("{}", add(1, 2))
+}
