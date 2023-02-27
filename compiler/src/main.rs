@@ -3,6 +3,7 @@ use clap::Parser;
 #[derive(Parser, Debug)]
 #[command(author, version, about = "A bootstrap compiler for the Leek language", long_about = None)]
 struct LeekCompilerArgs {
+    #[arg(required = true)]
     input_files: Vec<String>,
 }
 
