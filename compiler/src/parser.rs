@@ -811,6 +811,8 @@ impl LeekParser {
     ) -> Result<ParseTreeNode, LeekCompilerError> {
         let mut children = Vec::new();
 
+        // TODO: Parse operator precedence (not sure how to do this easily)
+
         // Left hand expression
         children.push(lhs);
         self.bleed_whitespace()?;

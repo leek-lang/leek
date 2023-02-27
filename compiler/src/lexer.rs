@@ -552,6 +552,8 @@ impl LeekLexer {
          * If size is not specified, f32 is the default
          */
 
+        // TODO: Lex negative numbers
+
         // Look ahead to match different literal types
         return 'number: {
             if *self.character_reader.peek().unwrap() == '0' {
