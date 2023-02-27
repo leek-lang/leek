@@ -2,7 +2,7 @@ use std::{fmt::Display, path::PathBuf};
 
 use itertools::{peek_nth, PeekNth};
 
-use crate::position::Position;
+use crate::position::{Position, SourceFile};
 
 /// Generic trait representing any type of character reader
 /// from a file, in a language server, or other
@@ -12,12 +12,12 @@ pub trait CharacterReader {
     fn peek(&mut self) -> Option<&char>;
     fn peek_nth(&mut self, n: usize) -> Option<&char>;
     fn get_position(&self) -> &Position;
-    fn get_contents(&self) -> &String;
+    fn get_source_file(&self) -> &SourceFile;
 }
 
 /// Specific file implementation of CharacterReader
 pub struct FileReader {
-    contents: String,
+    source_file: SourceFile,
     chars: PeekNth<std::vec::IntoIter<char>>,
     position: Position,
 }
@@ -44,7 +44,10 @@ impl FileReader {
         let chars = peek_nth(chars);
 
         Ok(Self {
-            contents: file_contents,
+            source_file: SourceFile {
+                path: Some(path.clone()),
+                content: file_contents,
+            },
             chars,
             position: Position::from(path),
         })
@@ -57,7 +60,10 @@ impl From<String> for FileReader {
         let chars = peek_nth(chars);
 
         Self {
-            contents: value,
+            source_file: SourceFile {
+                path: None,
+                content: value,
+            },
             chars,
             position: Position::new(),
         }
@@ -97,8 +103,8 @@ impl CharacterReader for FileReader {
         &self.position
     }
 
-    fn get_contents(&self) -> &String {
-        &self.contents
+    fn get_source_file(&self) -> &SourceFile {
+        &self.source_file
     }
 }
 

@@ -4,8 +4,20 @@ use std::fmt::Display;
 use crate::{
     error::LeekCompilerError,
     lexer::{IntegerLiteralKind, KeywordKind, LeekToken, LeekTokenKind, Lexer},
-    position::Span,
+    position::{SourceFile, Span},
 };
+
+#[derive(Debug)]
+pub struct ParseTree {
+    pub root: ParseTreeNode,
+    pub source_file: SourceFile,
+}
+
+impl PartialEq for ParseTree {
+    fn eq(&self, other: &Self) -> bool {
+        self.root == other.root
+    }
+}
 
 #[derive(Debug, PartialEq)]
 pub enum ParseTreeNode {
@@ -103,7 +115,7 @@ pub enum ParseTreeNonTerminalKind {
 #[derive(Debug)]
 pub struct ParserError {
     pub kind: ParserErrorKind,
-    pub contents: String,
+    pub source_file: SourceFile,
     pub span: Span,
 }
 
@@ -111,7 +123,7 @@ impl Display for ParserError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "{}", self.span.start())?;
 
-        let lines: Vec<_> = self.contents.lines().collect();
+        let lines: Vec<_> = self.source_file.content.lines().collect();
 
         // Print the lines around and including the one with the error
         let start = if self.span.start().row < 2 {
@@ -182,7 +194,7 @@ pub enum ParserErrorKind {
 
 pub trait Parser {
     /// Takes in a lexer and returns the root of a parse tree
-    fn parse(lexer: impl Lexer + 'static) -> Result<ParseTreeNode, LeekCompilerError>;
+    fn parse(lexer: impl Lexer + 'static) -> Result<ParseTree, LeekCompilerError>;
 }
 
 pub struct LeekParser {
@@ -190,7 +202,7 @@ pub struct LeekParser {
 }
 
 impl Parser for LeekParser {
-    fn parse(lexer: impl Lexer + 'static) -> Result<ParseTreeNode, LeekCompilerError> {
+    fn parse(lexer: impl Lexer + 'static) -> Result<ParseTree, LeekCompilerError> {
         let mut parser = LeekParser::new(lexer);
 
         parser.parse_from_lexer()
@@ -209,7 +221,7 @@ impl LeekParser {
         self.lexer.peek()?.ok_or_else(|| {
             ParserError {
                 kind: ParserErrorKind::UnexpectedEndOfInput,
-                contents: self.lexer.get_contents().clone(),
+                source_file: self.lexer.get_source_file().clone(),
                 span: Span::from(self.lexer.get_position()),
             }
             .into()
@@ -228,7 +240,7 @@ impl LeekParser {
         self.lexer.peek_nth(n)?.ok_or_else(|| {
             ParserError {
                 kind: ParserErrorKind::UnexpectedEndOfInput,
-                contents: self.lexer.get_contents().clone(),
+                source_file: self.lexer.get_source_file().clone(),
                 span: Span::from(self.lexer.get_position()),
             }
             .into()
@@ -245,7 +257,7 @@ impl LeekParser {
                     expected: kinds,
                     found: token.kind,
                 },
-                contents: self.lexer.get_contents().clone(),
+                source_file: self.lexer.get_source_file().clone(),
                 span: Span::from(self.lexer.get_position()),
             }
             .into());
@@ -353,7 +365,7 @@ impl LeekParser {
     fn create_error(&self, kind: ParserErrorKind) -> LeekCompilerError {
         ParserError {
             kind,
-            contents: self.lexer.get_contents().clone(),
+            source_file: self.lexer.get_source_file().clone(),
             span: Span::from(self.lexer.get_position()),
         }
         .into()
@@ -363,7 +375,7 @@ impl LeekParser {
     fn create_error_with_span(&self, kind: ParserErrorKind, span: Span) -> LeekCompilerError {
         ParserError {
             kind,
-            contents: self.lexer.get_contents().clone(),
+            source_file: self.lexer.get_source_file().clone(),
             span,
         }
         .into()
@@ -1113,7 +1125,7 @@ impl LeekParser {
     }
 
     /// Internal method to parse all the tokens from the internal lexer
-    fn parse_from_lexer(&mut self) -> Result<ParseTreeNode, LeekCompilerError> {
+    fn parse_from_lexer(&mut self) -> Result<ParseTree, LeekCompilerError> {
         let mut root = ParseTreeNode::NonTerminal(ParseTreeNodeNonTerminal {
             kind: ParseTreeNonTerminalKind::Program,
             children: vec![],
@@ -1129,7 +1141,10 @@ impl LeekParser {
             self.bleed_whitespace()?;
         }
 
-        Ok(root)
+        Ok(ParseTree {
+            root,
+            source_file: self.lexer.get_source_file().clone(),
+        })
     }
 }
 
@@ -1153,13 +1168,13 @@ mod test {
         let parse_tree =
             LeekParser::parse(lexer).unwrap_or_else(|e| panic!("Could not parse input: \n{e}"));
 
-        if parse_tree == expected_tree {
+        if parse_tree.root == expected_tree {
             return;
         }
 
         let mut output = String::new();
 
-        for diff in diff::lines(&format!("{expected_tree}"), &format!("{parse_tree}")) {
+        for diff in diff::lines(&format!("{expected_tree}"), &format!("{}", parse_tree.root)) {
             match diff {
                 diff::Result::Left(l) => {
                     output.push_str(&format!("{}", Color::Red.paint(format!("-{}\n", l))))

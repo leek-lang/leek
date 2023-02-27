@@ -1,10 +1,11 @@
 use std::{
     collections::VecDeque,
     fmt::{Debug, Display},
+    path::PathBuf,
 };
 
 use crate::{
-    position::{Position, Span},
+    position::{Position, SourceFile, Span},
     reader::CharacterReader,
 };
 
@@ -332,7 +333,7 @@ impl LeekTokenKind {
 #[derive(Debug)]
 pub struct LexerError {
     kind: LexerErrorKind,
-    contents: String,
+    source_file: SourceFile,
     position: Position,
 }
 
@@ -342,11 +343,15 @@ impl PartialEq for LexerError {
     }
 }
 
+#[cfg(test)]
 impl From<LexerErrorKind> for LexerError {
     fn from(kind: LexerErrorKind) -> Self {
         LexerError {
             kind,
-            contents: String::new(),
+            source_file: SourceFile {
+                path: Some(PathBuf::new()),
+                content: String::new(),
+            },
             position: Position::new(),
         }
     }
@@ -365,9 +370,23 @@ pub enum LexerErrorKind {
 
 impl Display for LexerError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "{}", self.position)?;
+        writeln!(
+            f,
+            "{}:{}",
+            match &self.source_file.path {
+                Some(file) => file
+                    .canonicalize()
+                    .expect("Could not canonicalize file path")
+                    .to_str()
+                    .expect("Could not convert file path to string")
+                    .trim_start_matches(r"\\?\")
+                    .to_owned(),
+                None => "<literal string>".to_owned(),
+            },
+            self.position
+        )?;
 
-        let lines: Vec<_> = self.contents.lines().collect();
+        let lines: Vec<_> = self.source_file.content.lines().collect();
 
         // Print the lines around and including the one with the error
         let start = if self.position.row < 2 {
@@ -431,7 +450,7 @@ pub trait Lexer {
     fn peek(&self) -> Result<Option<&LeekToken>, LexerError>;
     fn peek_nth(&self, n: usize) -> Result<Option<&LeekToken>, LexerError>;
     fn get_position(&self) -> &Position;
-    fn get_contents(&self) -> &String;
+    fn get_source_file(&self) -> &SourceFile;
 }
 
 /// Defines a specific Lexer for Leek
@@ -468,7 +487,7 @@ impl LeekLexer {
                 } else {
                     return Err(LexerError {
                         kind: LexerErrorKind::UnclosedWrappedLiteral(kind),
-                        contents: self.character_reader.get_contents().to_owned(),
+                        source_file: self.character_reader.get_source_file().to_owned(),
                         position: self.character_reader.get_position().clone(),
                     });
                 }
@@ -482,7 +501,7 @@ impl LeekLexer {
                 } else {
                     return Err(LexerError {
                         kind: LexerErrorKind::UnclosedWrappedLiteral(kind),
-                        contents: self.character_reader.get_contents().to_owned(),
+                        source_file: self.character_reader.get_source_file().to_owned(),
                         position: self.character_reader.get_position().clone(),
                     });
                 }
@@ -598,7 +617,7 @@ impl LeekLexer {
             ($kind:expr) => {
                 LexerError {
                     kind: $kind,
-                    contents: self.character_reader.get_contents().to_owned(),
+                    source_file: self.character_reader.get_source_file().to_owned(),
                     position: self.character_reader.get_position().clone(),
                 }
             };
@@ -608,7 +627,7 @@ impl LeekLexer {
             () => {
                 self.character_reader.next().ok_or_else(|| LexerError {
                     kind: LexerErrorKind::UnexpectedEndOfIntegerLiteral(literal_kind),
-                    contents: self.character_reader.get_contents().to_owned(),
+                    source_file: self.character_reader.get_source_file().to_owned(),
                     position: self.character_reader.get_position().clone(),
                 })?
             };
@@ -673,7 +692,7 @@ impl LeekLexer {
             ($kind:expr) => {
                 LexerError {
                     kind: $kind,
-                    contents: self.character_reader.get_contents().to_owned(),
+                    source_file: self.character_reader.get_source_file().to_owned(),
                     position: self.character_reader.get_position().clone(),
                 }
             };
@@ -690,7 +709,7 @@ impl LeekLexer {
                         }
                         NumberLexingState::Float => LexerErrorKind::UnexpectedEndOfFloatLiteral,
                     },
-                    contents: self.character_reader.get_contents().to_owned(),
+                    source_file: self.character_reader.get_source_file().to_owned(),
                     position: self.character_reader.get_position().clone(),
                 })?
             };
@@ -998,7 +1017,7 @@ impl LeekLexer {
                 c => {
                     return Err(LexerError {
                         kind: LexerErrorKind::UnexpectedChar(c),
-                        contents: self.character_reader.get_contents().clone(),
+                        source_file: self.character_reader.get_source_file().clone(),
                         position: self.character_reader.get_position().clone(),
                     })
                 }
@@ -1088,8 +1107,8 @@ impl Lexer for LeekLexer {
         self.character_reader.get_position()
     }
 
-    fn get_contents(&self) -> &String {
-        self.character_reader.get_contents()
+    fn get_source_file(&self) -> &SourceFile {
+        self.character_reader.get_source_file()
     }
 }
 

@@ -22,7 +22,7 @@ pub fn parse_file(path: PathBuf) -> Result<LeekAst, LeekCompilerError> {
     let lexer = LeekLexer::new(reader);
     let parse_tree = LeekParser::parse(lexer)?;
 
-    println!("{}", parse_tree);
+    println!("{}", parse_tree.root);
 
     todo!("build ast from parse tree")
 }
