@@ -100,11 +100,14 @@ pub enum ParseTreeNonTerminalKind {
     Expression,
     FunctionCallExpression,
     FunctionArguments,
+    StructFieldAccess,
+    StructMethodCall,
     BinaryExpression,
     UnaryExpression,
     Atom,
     StructDefinition,
     StructDefinitionBody,
+    StructInitialization,
     TypeAssociation,
     Type,
     QualifiedIdentifier,
@@ -177,6 +180,9 @@ impl Display for ParserError {
                 found, expected
             ),
             ParserErrorKind::UnexpectedEndOfInput => writeln!(f, "Unexpected end of input."),
+            ParserErrorKind::IndexIntoNonIdentifier => {
+                writeln!(f, "Cannot access field of non-struct object.")
+            }
         }
     }
 }
@@ -192,6 +198,7 @@ pub enum ParserErrorKind {
         found: KeywordKind,
     },
     UnexpectedEndOfInput,
+    IndexIntoNonIdentifier,
 }
 
 pub trait Parser {
@@ -250,7 +257,10 @@ impl LeekParser {
     }
 
     /// Peeks the next token and asserts that it is one of the provided types
-    fn peek_expect_of(&self, kinds: Vec<LeekTokenKind>) -> Result<&LeekToken, LeekCompilerError> {
+    fn peek_expect_is_of(
+        &self,
+        kinds: Vec<LeekTokenKind>,
+    ) -> Result<&LeekToken, LeekCompilerError> {
         let token = self.peek_expect()?;
 
         if !kinds.contains(&token.kind) {
@@ -260,7 +270,7 @@ impl LeekParser {
                     found: token.kind,
                 },
                 source_file: self.lexer.get_source_file().clone(),
-                span: Span::from(self.lexer.get_position()),
+                span: token.span.clone(),
             }
             .into());
         }
@@ -675,7 +685,7 @@ impl LeekParser {
         }
 
         match self
-            .peek_expect_of(vec![
+            .peek_expect_is_of(vec![
                 LeekTokenKind::Newline,
                 LeekTokenKind::CloseCurlyBracket,
             ])?
@@ -698,6 +708,7 @@ impl LeekParser {
     ///     | FunctionCallExpression
     ///     | BinaryExpression
     ///     | StructInitialization
+    ///     | StructFieldAccess
     fn parse_expression(&mut self) -> Result<ParseTreeNode, LeekCompilerError> {
         let mut node = match self.peek_expect()?.kind {
             LeekTokenKind::OpenParen => self.parse_atom()?,
@@ -711,7 +722,9 @@ impl LeekParser {
 
                 match self.peek_nth_ignore_whitespace_expect(0)?.kind {
                     LeekTokenKind::OpenParen => self.parse_function_call_expression(identifier)?,
-                    LeekTokenKind::OpenCurlyBracket => self.parse_struct_initialization(identifier)?,
+                    LeekTokenKind::OpenCurlyBracket => {
+                        self.parse_struct_initialization(identifier)?
+                    }
                     _ => self.parse_atom_from_identifier(identifier)?,
                 }
             }
@@ -735,6 +748,51 @@ impl LeekParser {
                 ));
             }
         };
+
+        while self.peek_nth_ignore_whitespace_expect(0)?.kind == LeekTokenKind::Period {
+            // Check to see if it is an indexable object
+            match node.non_terminal().kind {
+                ParseTreeNonTerminalKind::QualifiedIdentifier
+                | ParseTreeNonTerminalKind::StructFieldAccess
+                | ParseTreeNonTerminalKind::StructMethodCall
+                | ParseTreeNonTerminalKind::Atom => {}
+
+                _ => return Err(self.create_error(ParserErrorKind::IndexIntoNonIdentifier)),
+            };
+
+            // If the indexed object is an atom, make sure it is an identifier
+            if let ParseTreeNonTerminalKind::Atom = node.non_terminal().kind {
+                let atom_node = node.non_terminal();
+                let first_child = atom_node
+                    .children
+                    .get(0)
+                    .expect("Atom did not have any children");
+
+                let ParseTreeNode::NonTerminal(child) = first_child else {
+                    return Err(self.create_error(ParserErrorKind::IndexIntoNonIdentifier));
+                };
+
+                let ParseTreeNonTerminalKind::QualifiedIdentifier = child.kind else {
+                    return Err(self.create_error(ParserErrorKind::IndexIntoNonIdentifier));
+
+                };
+            };
+
+            node = match self.peek_nth_ignore_whitespace_expect(2)?.kind {
+                LeekTokenKind::OpenParen => self.parse_struct_method_call(
+                    ParseTreeNode::NonTerminal(ParseTreeNodeNonTerminal {
+                        kind: ParseTreeNonTerminalKind::Expression,
+                        children: vec![node],
+                    }),
+                )?,
+                _ => self.parse_struct_field_access(ParseTreeNode::NonTerminal(
+                    ParseTreeNodeNonTerminal {
+                        kind: ParseTreeNonTerminalKind::Expression,
+                        children: vec![node],
+                    },
+                ))?,
+            }
+        }
 
         if self
             .peek_nth_ignore_whitespace_expect(0)?
@@ -814,8 +872,45 @@ impl LeekParser {
     ///             identifier `:` Expression `\n`        
     ///         )*    
     ///     `}`
-    fn parse_struct_initialization(&mut self, identifier: ParseTreeNode) -> Result<ParseTreeNode, LeekCompilerError> {
-        todo!("Parse struct initialization")
+    fn parse_struct_initialization(
+        &mut self,
+        identifier: ParseTreeNode,
+    ) -> Result<ParseTreeNode, LeekCompilerError> {
+        let mut children = Vec::new();
+
+        children.push(identifier);
+        self.bleed_whitespace()?;
+
+        children.push(terminal!(
+            self.next_expect_is(LeekTokenKind::OpenCurlyBracket)?
+        ));
+        self.bleed_whitespace()?;
+
+        while !self.peek_expect_is(LeekTokenKind::CloseCurlyBracket)? {
+            children.push(terminal!(self.next_expect_is(LeekTokenKind::Identifier)?));
+            self.bleed_whitespace()?;
+
+            children.push(terminal!(self.next_expect_is(LeekTokenKind::Colon)?));
+            self.bleed_whitespace()?;
+
+            children.push(self.parse_expression()?);
+
+            self.peek_expect_is_of(vec![
+                LeekTokenKind::Newline,
+                LeekTokenKind::CloseCurlyBracket,
+            ])?;
+
+            self.bleed_whitespace()?;
+        }
+
+        children.push(terminal!(
+            self.next_expect_is(LeekTokenKind::CloseCurlyBracket)?
+        ));
+
+        Ok(ParseTreeNode::NonTerminal(ParseTreeNodeNonTerminal {
+            kind: ParseTreeNonTerminalKind::StructInitialization,
+            children,
+        }))
     }
 
     /// BinaryExpression ::
@@ -860,6 +955,57 @@ impl LeekParser {
 
         Ok(ParseTreeNode::NonTerminal(ParseTreeNodeNonTerminal {
             kind: ParseTreeNonTerminalKind::BinaryExpression,
+            children,
+        }))
+    }
+
+    /// StructFieldAccess ::
+    ///     Expression `.` identifier
+    fn parse_struct_field_access(
+        &mut self,
+        lhs: ParseTreeNode,
+    ) -> Result<ParseTreeNode, LeekCompilerError> {
+        let mut children = Vec::new();
+
+        // Left hand expression
+        children.push(lhs);
+        self.bleed_whitespace()?;
+
+        // Dot operator
+        children.push(terminal!(self.next_expect_is(LeekTokenKind::Period)?));
+        self.bleed_whitespace()?;
+
+        // Field
+        children.push(terminal!(self.next_expect_is(LeekTokenKind::Identifier)?));
+
+        Ok(ParseTreeNode::NonTerminal(ParseTreeNodeNonTerminal {
+            kind: ParseTreeNonTerminalKind::StructFieldAccess,
+            children,
+        }))
+    }
+
+    /// StructMethodCall ::
+    ///     Expression `.` FunctionCallExpression
+    fn parse_struct_method_call(
+        &mut self,
+        lhs: ParseTreeNode,
+    ) -> Result<ParseTreeNode, LeekCompilerError> {
+        let mut children = Vec::new();
+
+        // Left hand expression
+        children.push(lhs);
+        self.bleed_whitespace()?;
+
+        // Dot operator
+        children.push(terminal!(self.next_expect_is(LeekTokenKind::Period)?));
+        self.bleed_whitespace()?;
+
+        // Method
+        let identifier = terminal!(self.next_expect_is(LeekTokenKind::Identifier)?);
+        children.push(self.parse_function_call_expression(identifier)?);
+
+        Ok(ParseTreeNode::NonTerminal(ParseTreeNodeNonTerminal {
+            kind: ParseTreeNonTerminalKind::StructMethodCall,
             children,
         }))
     }

@@ -26,3 +26,19 @@ pub fn parse_file(path: PathBuf) -> Result<LeekAst, LeekCompilerError> {
 
     todo!("build ast from parse tree")
 }
+
+#[cfg(test)]
+mod test {
+    use crate::parse_file;
+
+    #[test]
+    fn run_examples() {
+        let files = std::fs::read_dir("../examples")
+            .unwrap()
+            .map(|f| f.unwrap());
+
+        for file in files {
+            parse_file(file.path()).unwrap();
+        }
+    }
+}
