@@ -13,7 +13,7 @@ Leek enables you to move fast and run away from your problems. Even if you manag
 
 Leek uses a Rust inspired syntax, but differs slightly. Semicolons are not necessary anywhere, and commas are not necessary in many places either.
 
-### Hello World
+### 1. Hello World
 
 All binary programs require a `main` function. To print to the standard output, use the built in global `println` function.
 
@@ -23,7 +23,7 @@ fn main() {
 }
 ```
 
-### Local Variables
+### 2. Local Variables
 
 In Leek, allocating variables on the stack violates the principle of memory management through exiting. Thats why, all local variables get allocated on the heap. Declare a variable with the `leak` keyword like so:
 
@@ -41,7 +41,7 @@ fn main() {
 }
 ```
 
-### Functions
+### 3. Functions
 
 Arguments to functions can be defined with the comma separated `<identifier>: <type>` syntax, and return types can be declared using an arrow (`->`).
 To return a value from a function, use the `yeet` keyword.
@@ -57,7 +57,7 @@ fn main() {
 }
 ```
 
-### Constant Variables
+### 4. Constant Variables
 
 Declare constants with the `perm` keyword. A strict type definition is required. Constant variables will not leak any memory at runtime, but can not be mutated.
 
@@ -70,7 +70,7 @@ fn main() {
 }
 ```
 
-### Static Variables
+### 5. Static Variables
 
 Declare static variables with the `hold` keyword. A strict type definition is required. Static variables will be lazily allocated at runtime, and can be mutated at any point in the program.
 
@@ -97,7 +97,7 @@ fn main() {
 }
 ```
 
-### Structs
+### 6. Structs
 
 Define structs with the `struct` keyword, and declare fields with their name and type (no commas required!). Create a struct with the name and its members inside brackets. Access its fields with dot notation.
 
@@ -115,5 +115,29 @@ fn main() {
 
     // Prints "Alice is 18 years old."
     println("{} is {} year old.", alice.name, alice.age)
+}
+```
+
+### 7. Struct Methods
+
+Leek does not support object oriented programming, but functions can be scoped to a struct and accessed with dot notation in a similar way to many OOP style languages. This is syntactic sugar for passing in the struct as the first argument to a function.
+
+```leek
+struct Person {
+    first_name: String
+    last_name: String
+}
+
+fn Person::full_name(this) -> String {
+    yeet format("{} {}", this.first_name, this.last_name)
+}
+
+fn main() {
+    leak root = Person {
+        first_name: "John"
+        last_name: "Smith"
+    }
+
+    println("{}", root.full_name())
 }
 ```
