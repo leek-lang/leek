@@ -112,6 +112,8 @@ pub enum ParseTreeNonTerminalKind {
     StaticVariableDeclaration,
 }
 
+// TODO: Add better parser error output
+
 #[derive(Debug)]
 pub struct ParserError {
     pub kind: ParserErrorKind,
