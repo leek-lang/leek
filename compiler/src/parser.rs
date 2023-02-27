@@ -695,6 +695,7 @@ impl LeekParser {
     ///     | UnaryExpression
     ///     | FunctionCallExpression
     ///     | BinaryExpression
+    ///     | StructInitialization
     fn parse_expression(&mut self) -> Result<ParseTreeNode, LeekCompilerError> {
         let mut node = match self.peek_expect()?.kind {
             LeekTokenKind::OpenParen => self.parse_atom()?,
@@ -708,6 +709,7 @@ impl LeekParser {
 
                 match self.peek_nth_ignore_whitespace_expect(0)?.kind {
                     LeekTokenKind::OpenParen => self.parse_function_call_expression(identifier)?,
+                    LeekTokenKind::OpenCurlyBracket => self.parse_struct_initialization(identifier)?,
                     _ => self.parse_atom_from_identifier(identifier)?,
                 }
             }
@@ -802,6 +804,16 @@ impl LeekParser {
             kind: ParseTreeNonTerminalKind::FunctionArguments,
             children,
         }))
+    }
+
+    /// StructInitialization ::
+    ///     QualifiedIdentifier `{`
+    ///         (
+    ///             identifier `:` Expression `\n`        
+    ///         )*    
+    ///     `}`
+    fn parse_struct_initialization(&mut self, identifier: ParseTreeNode) -> Result<ParseTreeNode, LeekCompilerError> {
+        todo!("Parse struct initialization")
     }
 
     /// BinaryExpression ::
