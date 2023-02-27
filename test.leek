@@ -4,7 +4,9 @@ perm THREE: u8 = 0x03
 
 hold state: u8 = 0b0001
 
-fn add(a: i32, b: i32) -> std::Result
+fn add(a: i32, b: i32) -> i32 {
+    yeet a + b
+}
 
 fn main() -> i32 {
      leak a = 1

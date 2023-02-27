@@ -80,7 +80,6 @@ impl Display for ParseTreeNode {
 #[derive(Debug, PartialEq)]
 pub enum ParseTreeNonTerminalKind {
     Program,
-    FunctionDeclaration,
     FunctionDefinition,
     FunctionReturnType,
     FunctionParameters,
@@ -455,21 +454,11 @@ impl LeekParser {
             children.push(self.parse_return_type()?);
         }
 
-        let mut kind = ParseTreeNonTerminalKind::FunctionDeclaration;
-
-        if let Some(token) = self.peek_nth_ignore_whitespace(0)? {
-            if token.kind == LeekTokenKind::OpenCurlyBracket {
-                kind = ParseTreeNonTerminalKind::FunctionDefinition;
-
-                self.bleed_whitespace()?;
-                children.push(self.parse_block()?);
-            } else {
-                children.push(terminal!(self.next_expect_is(LeekTokenKind::Newline)?));
-            }
-        }
+        self.bleed_whitespace()?;
+        children.push(self.parse_block()?);
 
         Ok(ParseTreeNode::NonTerminal(ParseTreeNodeNonTerminal {
-            kind,
+            kind: ParseTreeNonTerminalKind::FunctionDefinition,
             children,
         }))
     }
@@ -1201,8 +1190,6 @@ mod test {
             
             hold state: u8 = 0b0001
 
-            fn add(a: i32, b: i32) -> i32
-
             fn main() {
                 leak a = 1
                 leak b = 2 
@@ -1325,78 +1312,6 @@ mod test {
                                         "0b0001"
                                     ),]
                                 ),]
-                            ),
-                            terminal_from!(LeekTokenKind::Newline, "\n"),
-                        ]
-                    ),
-                    non_terminal!(
-                        ParseTreeNonTerminalKind::FunctionDeclaration,
-                        vec![
-                            terminal_from!(LeekTokenKind::Keyword(KeywordKind::Fn), "fn"),
-                            non_terminal!(
-                                ParseTreeNonTerminalKind::QualifiedIdentifier,
-                                vec![
-                                    terminal_from!(LeekTokenKind::Identifier, "add"),
-                                ]
-                            ),
-                            non_terminal!(
-                                ParseTreeNonTerminalKind::FunctionParameters,
-                                vec![
-                                    terminal_from!(LeekTokenKind::OpenParen, "("),
-                                    non_terminal!(
-                                        ParseTreeNonTerminalKind::TypeAssociation,
-                                        vec![
-                                            terminal_from!(LeekTokenKind::Identifier, "a"),
-                                            terminal_from!(LeekTokenKind::Colon, ":"),
-                                            non_terminal!(
-                                                ParseTreeNonTerminalKind::Type,
-                                                vec![
-                                                    non_terminal!(
-                                                        ParseTreeNonTerminalKind::QualifiedIdentifier,
-                                                        vec![
-                                                            terminal_from!(LeekTokenKind::Identifier, "i32"),
-                                                        ]
-                                                    )
-                                                ]
-                                            ),
-                                        ]
-                                    ),
-                                    terminal_from!(LeekTokenKind::Comma, ","),
-                                    non_terminal!(
-                                        ParseTreeNonTerminalKind::TypeAssociation,
-                                        vec![
-                                            terminal_from!(LeekTokenKind::Identifier, "b"),
-                                            terminal_from!(LeekTokenKind::Colon, ":"),
-                                            non_terminal!(
-                                                ParseTreeNonTerminalKind::Type,
-                                                vec![
-                                                    non_terminal!(
-                                                        ParseTreeNonTerminalKind::QualifiedIdentifier,
-                                                        vec![
-                                                            terminal_from!(LeekTokenKind::Identifier, "i32"),
-                                                        ]
-                                                    )
-                                                ]
-                                            ),
-                                        ]
-                                    ),
-                                    terminal_from!(LeekTokenKind::CloseParen, ")"),
-                                ]
-                            ),
-                            non_terminal!(
-                                ParseTreeNonTerminalKind::FunctionReturnType,
-                                vec![
-                                    terminal_from!(LeekTokenKind::Arrow, "->"),
-                                    non_terminal!(
-                                        ParseTreeNonTerminalKind::Type,
-                                        vec![non_terminal!(
-                                            ParseTreeNonTerminalKind::QualifiedIdentifier,
-                                            vec![
-                                                terminal_from!(LeekTokenKind::Identifier, "i32"),
-                                            ]
-                                        ),]
-                                    ),
-                                ]
                             ),
                             terminal_from!(LeekTokenKind::Newline, "\n"),
                         ]
