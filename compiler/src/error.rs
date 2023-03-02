@@ -1,13 +1,13 @@
 use std::fmt::Display;
 
-use crate::{lexer::LexerError, parser::ParserError, reader::FileReadError};
+use crate::{lexer::LexerError, parser::ParserError, reader::FileReadError, ast::AstBuildError};
 
 #[derive(Debug)]
 pub enum LeekCompilerError {
     FileReadError(FileReadError),
     LexerError(LexerError),
     ParserError(ParserError),
-    AstError,
+    AstBuildError(AstBuildError),
     TypeCheckerError,
 }
 
@@ -31,6 +31,12 @@ impl Display for LeekCompilerError {
                     "Parser Error: \n{e}\n=================================\n\n{e:#?}\n"
                 )
             }
+            LeekCompilerError::AstBuildError(e) => {
+                write!(
+                    f,
+                    "Ast Build Error: \n{e}\n=================================\n\n{e:#?}\n"
+                )
+            }
 
             _ => todo!("Implement other error messages"),
         }
@@ -52,5 +58,11 @@ impl From<LexerError> for LeekCompilerError {
 impl From<ParserError> for LeekCompilerError {
     fn from(error: ParserError) -> Self {
         LeekCompilerError::ParserError(error)
+    }
+}
+
+impl From<AstBuildError> for LeekCompilerError {
+    fn from(error: AstBuildError) -> Self {
+        LeekCompilerError::AstBuildError(error)
     }
 }

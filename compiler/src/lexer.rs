@@ -11,6 +11,7 @@ use crate::{
 
 #[allow(dead_code)]
 #[cfg_attr(not(test), derive(Debug))]
+#[derive(Clone)]
 pub struct LeekToken {
     pub kind: LeekTokenKind,
     pub text: String,

@@ -19,16 +19,16 @@ impl PartialEq for ParseTree {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum ParseTreeNode {
     Terminal(LeekToken),
     NonTerminal(ParseTreeNodeNonTerminal),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct ParseTreeNodeNonTerminal {
-    kind: ParseTreeNonTerminalKind,
-    children: Vec<ParseTreeNode>,
+    pub kind: ParseTreeNonTerminalKind,
+    pub children: Vec<ParseTreeNode>,
 }
 
 impl ParseTreeNode {
@@ -49,8 +49,7 @@ impl ParseTreeNode {
         }
     }
 
-    #[allow(dead_code)]
-    fn terminal_token(&mut self) -> &mut LeekToken {
+    pub fn terminal_token(&self) -> &LeekToken {
         if let ParseTreeNode::Terminal(token) = self {
             token
         } else {
@@ -58,7 +57,7 @@ impl ParseTreeNode {
         }
     }
 
-    fn non_terminal(&mut self) -> &mut ParseTreeNodeNonTerminal {
+    pub fn non_terminal(&self) -> &ParseTreeNodeNonTerminal {
         if let ParseTreeNode::NonTerminal(non_terminal) = self {
             non_terminal
         } else {
@@ -89,7 +88,7 @@ impl Display for ParseTreeNode {
 }
 
 /// Represents non-terminal parse tree nodes
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum ParseTreeNonTerminalKind {
     Program,
     FunctionDefinition,
@@ -1286,20 +1285,20 @@ impl LeekParser {
 
     /// Internal method to parse all the tokens from the internal lexer
     fn parse_from_lexer(&mut self) -> Result<ParseTree, LeekCompilerError> {
-        let mut root = ParseTreeNode::NonTerminal(ParseTreeNodeNonTerminal {
-            kind: ParseTreeNonTerminalKind::Program,
-            children: vec![],
-        });
+        let mut children = Vec::new();
 
         self.bleed_whitespace()?;
 
         while self.lexer.has_next()? {
-            root.non_terminal()
-                .children
-                .push(self.parse_program_part()?);
+            children.push(self.parse_program_part()?);
 
             self.bleed_whitespace()?;
         }
+
+        let root = ParseTreeNode::NonTerminal(ParseTreeNodeNonTerminal {
+            kind: ParseTreeNonTerminalKind::Program,
+            children,
+        });
 
         Ok(ParseTree {
             root,
