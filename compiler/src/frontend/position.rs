@@ -32,7 +32,7 @@ impl<T> From<T> for Position
 where
     T: Into<PathBuf> + Sized,
 {
-    fn from(file: T) -> Self {
+    fn from(_file: T) -> Self {
         Position { row: 0, col: 0 }
     }
 }

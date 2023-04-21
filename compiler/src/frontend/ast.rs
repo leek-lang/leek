@@ -2,9 +2,9 @@ use core::panic;
 use std::fmt::Display;
 
 use crate::{
-    lexer::{LeekToken, LeekTokenKind},
-    parser::{ParseTree, ParseTreeNode, ParseTreeNodeNonTerminal, ParseTreeNonTerminalKind},
-    position::{SourceFile, Span},
+    frontend::lexer::LeekTokenKind,
+    frontend::parser::{ParseTree, ParseTreeNode, ParseTreeNodeNonTerminal, ParseTreeNonTerminalKind},
+    frontend::position::{SourceFile, Span},
 };
 
 #[derive(Debug)]
@@ -203,7 +203,7 @@ pub struct VariableDeclaration {
 }
 
 impl FromNode for VariableDeclaration {
-    fn from_node(node: &ParseTreeNodeNonTerminal) -> Result<Self, AstBuildError> {
+    fn from_node(_node: &ParseTreeNodeNonTerminal) -> Result<Self, AstBuildError> {
         todo!()
     }
 }
@@ -346,7 +346,7 @@ impl FromNode for FunctionDefinition {
 
         assert!(node.children.len() >= 4 && node.children.len() <= 5);
 
-        let (_fn, identifier, parameters, return_type, block) = match node.children.len() {
+        let (_fn, identifier, parameters, _return_type, _block) = match node.children.len() {
             4 => (
                 &node.children[0],
                 &node.children[1],
@@ -413,7 +413,9 @@ impl FromNode for FunctionDefinition {
         let mut parameters = Vec::new();
 
         for i in 1..parameter_nodes.len() - 1 {
-            parameters.push(FunctionParameter::from_node(parameter_nodes.get(i).unwrap().non_terminal())?)
+            parameters.push(FunctionParameter::from_node(
+                parameter_nodes.get(i).unwrap().non_terminal(),
+            )?)
         }
 
         Ok(FunctionDefinition {
@@ -433,7 +435,7 @@ pub struct FunctionParameter {
 }
 
 impl FromNode for FunctionParameter {
-    fn from_node(node: &ParseTreeNodeNonTerminal) -> Result<Self, AstBuildError> {
+    fn from_node(_node: &ParseTreeNodeNonTerminal) -> Result<Self, AstBuildError> {
         todo!()
     }
 }
@@ -464,7 +466,7 @@ pub struct StructDefinition {
 }
 
 impl FromNode for StructDefinition {
-    fn from_node(node: &ParseTreeNodeNonTerminal) -> Result<Self, AstBuildError> {
+    fn from_node(_node: &ParseTreeNodeNonTerminal) -> Result<Self, AstBuildError> {
         todo!()
     }
 }

@@ -1,12 +1,11 @@
 use std::{
     collections::VecDeque,
     fmt::{Debug, Display},
-    path::PathBuf,
 };
 
 use crate::{
-    position::{Position, SourceFile, Span},
-    reader::CharacterReader,
+    frontend::reader::CharacterReader,
+    frontend::position::{Position, SourceFile, Span},
 };
 
 #[allow(dead_code)]
@@ -347,6 +346,8 @@ impl PartialEq for LexerError {
 #[cfg(test)]
 impl From<LexerErrorKind> for LexerError {
     fn from(kind: LexerErrorKind) -> Self {
+        use std::path::PathBuf;
+
         LexerError {
             kind,
             source_file: SourceFile {
@@ -1116,8 +1117,8 @@ impl Lexer for LeekLexer {
 #[cfg(test)]
 mod test {
     use crate::{
-        lexer::{IntegerLiteralKind::*, KeywordKind::*, LeekToken as LT, LeekTokenKind::*},
-        reader::FileReader,
+        frontend::reader::FileReader,
+        frontend::lexer::{IntegerLiteralKind::*, KeywordKind::*, LeekToken as LT, LeekTokenKind::*},
     };
 
     use super::{LeekLexer, Lexer, LexerError, LexerErrorKind::*};

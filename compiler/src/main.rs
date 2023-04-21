@@ -11,7 +11,7 @@ fn main() {
     let args = LeekCompilerArgs::parse();
 
     for file in &args.input_files {
-        let ast = leek::parse_file(file.into()).unwrap_or_else(|e| e.report());
+        let ast = leek::frontend::parse_file(file.into()).unwrap_or_else(|e| e.report());
         println!("{ast:?}")
     }
 }

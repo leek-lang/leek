@@ -2,7 +2,7 @@ use std::{fmt::Display, path::PathBuf};
 
 use itertools::{peek_nth, PeekNth};
 
-use crate::position::{Position, SourceFile};
+use crate::frontend::position::{Position, SourceFile};
 
 /// Generic trait representing any type of character reader
 /// from a file, in a language server, or other

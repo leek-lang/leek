@@ -1,6 +1,9 @@
 use std::fmt::Display;
 
-use crate::{lexer::LexerError, parser::ParserError, reader::FileReadError, ast::AstBuildError};
+use crate::{
+    backend::CodeGenError,
+    frontend::{ast::AstBuildError, lexer::LexerError, parser::ParserError, reader::FileReadError},
+};
 
 #[derive(Debug)]
 pub enum LeekCompilerError {
@@ -9,6 +12,7 @@ pub enum LeekCompilerError {
     ParserError(ParserError),
     AstBuildError(AstBuildError),
     TypeCheckerError,
+    CodeGenError(CodeGenError),
 }
 
 impl LeekCompilerError {

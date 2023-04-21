@@ -2,9 +2,9 @@ use core::panic;
 use std::fmt::Display;
 
 use crate::{
-    error::LeekCompilerError,
-    lexer::{IntegerLiteralKind, KeywordKind, LeekToken, LeekTokenKind, Lexer},
-    position::{SourceFile, Span},
+    common::error::LeekCompilerError,
+    frontend::lexer::{IntegerLiteralKind, KeywordKind, LeekToken, LeekTokenKind, Lexer},
+    frontend::position::{SourceFile, Span},
 };
 
 #[derive(Debug)]
@@ -1312,8 +1312,8 @@ mod test {
     use ansi_term::Color;
 
     use crate::{
-        lexer::{IntegerLiteralKind, KeywordKind, LeekLexer, LeekToken, LeekTokenKind},
-        reader::FileReader,
+        frontend::lexer::{IntegerLiteralKind, KeywordKind, LeekLexer, LeekToken, LeekTokenKind},
+        frontend::reader::FileReader,
     };
 
     use super::{
