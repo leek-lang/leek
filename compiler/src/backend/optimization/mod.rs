@@ -1,12 +1,25 @@
 use std::str::FromStr;
 
-#[derive(Debug, Default)]
+use clap::ValueEnum;
+
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 pub enum OptimizationLevel {
     #[default]
+    #[value(name = "0", help = "None (default)")]
     None,
+    #[value(name = "1", help = "AST optimization is done")]
     Minimal,
+    #[value(name = "2", help = "AST and assembly stack optimization is done")]
     Normal,
+    #[value(
+        name = "3",
+        help = "AST, assembly stack, and SIMD optimization is done"
+    )]
     Maximum,
+    #[value(
+        name = "z",
+        help = "Output is optimized to contain the smallest possible size"
+    )]
     Size,
 }
 

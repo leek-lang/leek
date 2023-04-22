@@ -1,5 +1,7 @@
 use std::{fs, io::BufRead, path::PathBuf};
 
+use clap::ValueEnum;
+
 use crate::frontend::ast::LeekAst;
 
 use self::{
@@ -17,11 +19,14 @@ pub enum BuildMode {
     Release,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 pub enum EmitMode {
     #[default]
+    #[value(name = "exe", help = "executable file")]
     ExecutableFile,
+    #[value(name = "obj", help = "object file")]
     ObjectFile,
+    #[value(name = "asm", help = "assembly file")]
     AssemblyFile,
 }
 
@@ -99,8 +104,7 @@ pub fn compile_ast(
 
     // If all we want is to generate asm, then write to disk and stop here
     if let EmitMode::AssemblyFile = compiler_options.emit_mode {
-        fs::copy(assembly_file_path, output_path)
-            .map_err(|_| CodeGenError::FileOutputFailure)?;
+        fs::copy(assembly_file_path, output_path).map_err(|_| CodeGenError::FileOutputFailure)?;
         return Ok(());
     }
 
