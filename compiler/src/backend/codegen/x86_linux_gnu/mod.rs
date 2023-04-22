@@ -1,6 +1,6 @@
 use std::{path::PathBuf, process::Command};
 
-use crate::{frontend::ast::LeekAst, backend::CompilerOptions};
+use crate::{backend::CompilerOptions, frontend::ast::LeekAst};
 
 use super::CodeGenerator;
 

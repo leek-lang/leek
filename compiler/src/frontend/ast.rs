@@ -3,7 +3,9 @@ use std::fmt::Display;
 
 use crate::{
     frontend::lexer::LeekTokenKind,
-    frontend::parser::{ParseTree, ParseTreeNode, ParseTreeNodeNonTerminal, ParseTreeNonTerminalKind},
+    frontend::parser::{
+        ParseTree, ParseTreeNode, ParseTreeNodeNonTerminal, ParseTreeNonTerminalKind,
+    },
     frontend::position::{SourceFile, Span},
 };
 

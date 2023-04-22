@@ -4,8 +4,8 @@ use std::{
 };
 
 use crate::{
-    frontend::reader::CharacterReader,
     frontend::position::{Position, SourceFile, Span},
+    frontend::reader::CharacterReader,
 };
 
 #[allow(dead_code)]
@@ -1117,8 +1117,10 @@ impl Lexer for LeekLexer {
 #[cfg(test)]
 mod test {
     use crate::{
+        frontend::lexer::{
+            IntegerLiteralKind::*, KeywordKind::*, LeekToken as LT, LeekTokenKind::*,
+        },
         frontend::reader::FileReader,
-        frontend::lexer::{IntegerLiteralKind::*, KeywordKind::*, LeekToken as LT, LeekTokenKind::*},
     };
 
     use super::{LeekLexer, Lexer, LexerError, LexerErrorKind::*};
