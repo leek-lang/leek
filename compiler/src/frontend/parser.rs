@@ -579,7 +579,7 @@ impl LeekParser {
     ///     (
     ///         (yeet Expression)
     ///         | (leak identifier (`:` Type)? = Expression)
-    ///         | QualifiedIdentifier assignment Expression
+    ///         | (QualifiedIdentifier assignment Expression)
     ///         | (FunctionCallExpression)
     ///     )
     fn parse_statement(&mut self) -> Result<ParseTreeNode, LeekCompilerError> {
@@ -610,7 +610,7 @@ impl LeekParser {
                         children.push(terminal!(self.next_expect_is(LeekTokenKind::Colon)?));
                         self.bleed_whitespace()?;
 
-                        todo!("parse type")
+                        todo!("parse explicit type")
                     }
                     k => {
                         return Err(self.create_error_with_span(
@@ -708,6 +708,7 @@ impl LeekParser {
     ///     | BinaryExpression
     ///     | StructInitialization
     ///     | StructFieldAccess
+    ///     | StructMethodCall
     fn parse_expression(&mut self) -> Result<ParseTreeNode, LeekCompilerError> {
         let mut node = match self.peek_expect()?.kind {
             LeekTokenKind::OpenParen => self.parse_atom()?,
