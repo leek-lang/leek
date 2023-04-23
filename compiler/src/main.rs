@@ -1,7 +1,9 @@
 use std::path::PathBuf;
 
 use clap::Parser;
-use leek::backend::{optimization::OptimizationLevel, EmitMode};
+use leek::backend::{
+    codegen::CodeGenTarget, optimization::OptimizationLevel, BuildMode, CompilerOptions, EmitMode,
+};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about = "A bootstrap compiler for the Leek language", long_about = None)]
@@ -29,6 +31,24 @@ fn main() {
 
     for file in &args.input_files {
         let ast = leek::frontend::parse_file(file.into()).unwrap_or_else(|e| e.report());
-        println!("{ast:?}")
+        println!("{ast:#?}");
+
+        leek::backend::compile_ast(
+            ast,
+            CompilerOptions {
+                opt_level: args.opt_level,
+                build_mode: if args.release {
+                    BuildMode::Release
+                } else {
+                    BuildMode::Debug
+                },
+                emit_mode: args.emit,
+                input_file: PathBuf::from(args.input_files[0].clone()),
+                output_name: args.output.clone(),
+                verbose: args.verbose,
+            },
+            CodeGenTarget::x86LinuxGNU,
+        )
+        .unwrap_or_else(|e| e.report());
     }
 }
