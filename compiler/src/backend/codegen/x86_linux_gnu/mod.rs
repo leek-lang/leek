@@ -13,15 +13,27 @@ impl CodeGenerator for CodeGeneratorX86LinuxGNU {
         global main
 
         section .data
+            ; Line 2
+            msg: db \"Hello, world!\", 0xa
+            msg_len: equ $ - msg
 
         section .text
 
         main:
+            ; Line 1
             push ebp
             mov ebp, esp
 
+            ; Line 2
+            mov eax, 4
+            mov ebx, 1
+            mov ecx, msg
+            mov edx, msg_len
+            int 0x80
+
+            ; Line 3
             mov eax, 0
-            mob esp, ebp
+            mov esp, ebp
             pop ebp
             ret
         ",
