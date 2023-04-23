@@ -1,8 +1,9 @@
 use std::{fs, io::BufRead, path::PathBuf};
 
 use clap::ValueEnum;
+use itertools::Itertools;
 
-use crate::frontend::ast::LeekAst;
+use crate::{common::error::LeekCompilerError, frontend::ast::LeekAst};
 
 use self::{
     codegen::{CodeGenTarget, CodeGenerator},
@@ -61,7 +62,7 @@ pub fn compile_ast(
     ast: LeekAst,
     compiler_options: CompilerOptions,
     target: CodeGenTarget,
-) -> Result<(), CodeGenError> {
+) -> Result<(), LeekCompilerError> {
     let code_generator = target.get_code_generator();
 
     // If the output name is specified, use that.
@@ -126,7 +127,7 @@ pub fn compile_ast(
     if !output.status.success() {
         // Break on assembler error
         display_buffer!(output.stderr, "ASSEMBLER", "STDERR");
-        return Err(CodeGenError::AssemblerError);
+        return Err(CodeGenError::AssemblerError.into());
     } else if compiler_options.verbose {
         // Print assembler output if verbose is passed
         display_buffer!(output.stdout, "ASSEMBLER", "STDOUT");
@@ -151,7 +152,7 @@ pub fn compile_ast(
     if !output.status.success() {
         // Break on linker error
         display_buffer!(output.stderr, "LINKER", "STDERR");
-        return Err(CodeGenError::LinkerError);
+        return Err(CodeGenError::LinkerError.into());
     } else if compiler_options.verbose {
         // Print linker output if verbose is passed
         display_buffer!(output.stdout, "LINKER", "STDOUT");

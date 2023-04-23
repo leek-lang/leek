@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use crate::{
     backend::CodeGenError,
-    frontend::{ast::AstBuildError, lexer::LexerError, parser::ParserError, reader::FileReadError},
+    frontend::{ast::builder::AstBuildError, lexer::LexerError, parser::ParserError, reader::FileReadError},
 };
 
 #[derive(Debug)]
@@ -68,5 +68,11 @@ impl From<ParserError> for LeekCompilerError {
 impl From<AstBuildError> for LeekCompilerError {
     fn from(error: AstBuildError) -> Self {
         LeekCompilerError::AstBuildError(error)
+    }
+}
+
+impl From<CodeGenError> for LeekCompilerError {
+    fn from(error: CodeGenError) -> Self {
+        LeekCompilerError::CodeGenError(error)
     }
 }
