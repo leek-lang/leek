@@ -26,7 +26,5 @@ pub fn parse_file(path: PathBuf) -> Result<LeekAst, LeekCompilerError> {
 
     let ast = LeekAst::build_from(parse_tree)?;
 
-    println!("{:#?}", ast);
-
     Ok(ast)
 }
