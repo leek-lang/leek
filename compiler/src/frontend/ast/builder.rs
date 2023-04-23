@@ -302,7 +302,7 @@ impl FromNode for Atom {
 }
 
 impl FromNode for UnaryExpression {
-    fn from_node(node: &ParseTreeNodeNonTerminal) -> Result<Self, AstBuildError> {
+    fn from_node(_node: &ParseTreeNodeNonTerminal) -> Result<Self, AstBuildError> {
         todo!("build from unary expression")
     }
 }
@@ -359,25 +359,25 @@ impl FromNode for FunctionCallExpression {
 }
 
 impl FromNode for BinaryExpression {
-    fn from_node(node: &ParseTreeNodeNonTerminal) -> Result<Self, AstBuildError> {
+    fn from_node(_node: &ParseTreeNodeNonTerminal) -> Result<Self, AstBuildError> {
         todo!("build from binary expression")
     }
 }
 
 impl FromNode for StructInitialization {
-    fn from_node(node: &ParseTreeNodeNonTerminal) -> Result<Self, AstBuildError> {
+    fn from_node(_node: &ParseTreeNodeNonTerminal) -> Result<Self, AstBuildError> {
         todo!("build from struct initialization")
     }
 }
 
 impl FromNode for StructFieldAccess {
-    fn from_node(node: &ParseTreeNodeNonTerminal) -> Result<Self, AstBuildError> {
+    fn from_node(_node: &ParseTreeNodeNonTerminal) -> Result<Self, AstBuildError> {
         todo!("build from struct field access")
     }
 }
 
 impl FromNode for StructMethodCall {
-    fn from_node(node: &ParseTreeNodeNonTerminal) -> Result<Self, AstBuildError> {
+    fn from_node(_node: &ParseTreeNodeNonTerminal) -> Result<Self, AstBuildError> {
         todo!("build from struct method call")
     }
 }

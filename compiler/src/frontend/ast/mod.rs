@@ -1,6 +1,4 @@
-use std::fmt::Display;
-
-use super::{position::{SourceFile, Span}, lexer::LeekTokenKind};
+use super::position::{SourceFile, Span};
 
 pub mod builder;
 
@@ -259,7 +257,7 @@ pub struct StructInitialization {
 pub struct StructInitializationField {
     pub identifier: String,
     pub value: Expression,
-} 
+}
 
 #[derive(Debug)]
 pub struct StructFieldAccess {
