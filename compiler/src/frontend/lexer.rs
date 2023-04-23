@@ -936,7 +936,7 @@ impl LeekLexer {
             // SAFETY: always checking if more characters are available before unwrapping
             let first_char = *self.character_reader.peek().unwrap();
 
-            return Ok(Some(match first_char {
+            let token = Ok(Some(match first_char {
                 // New lines are significant
                 '\n' => self.read_single(LeekTokenKind::Newline),
 
@@ -954,7 +954,7 @@ impl LeekLexer {
 
                 // Words
                 a if a.is_ascii_alphabetic() => {
-                    let word = self.read_while(|c| c.is_ascii_alphanumeric());
+                    let word = self.read_while(|c| c.is_ascii_alphanumeric() || c == '_');
 
                     LeekToken {
                         kind: match KeywordKind::try_from(&word) {
@@ -1024,6 +1024,10 @@ impl LeekLexer {
                     })
                 }
             }));
+
+            println!(" -> {:?}", token.as_ref().unwrap().as_ref().unwrap().kind);
+
+            return token;
         }
 
         // If got to the end of the cursor without finding any more tokens,
