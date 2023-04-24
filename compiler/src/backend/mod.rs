@@ -12,6 +12,7 @@ use self::{
 
 pub mod codegen;
 pub mod optimization;
+pub mod type_checking;
 
 #[derive(Debug, Default)]
 pub enum BuildMode {

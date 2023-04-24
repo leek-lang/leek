@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use crate::{
-    backend::CodeGenError,
+    backend::{type_checking::TypeCheckingError, CodeGenError},
     frontend::{
         ast::builder::AstBuildError, lexer::LexerError, parser::ParserError, reader::FileReadError,
     },
@@ -13,7 +13,8 @@ pub enum LeekCompilerError {
     LexerError(LexerError),
     ParserError(ParserError),
     AstBuildError(AstBuildError),
-    TypeCheckerError,
+    AstLoweringError,
+    TypeCheckingError(TypeCheckingError),
     CodeGenError(CodeGenError),
 }
 
@@ -34,13 +35,19 @@ impl Display for LeekCompilerError {
             LeekCompilerError::ParserError(e) => {
                 write!(
                     f,
-                    "Parser Error: \n{e}\n=================================\n\n{e:#?}\n"
+                    "Parser Error: {e}\n=================================\n\n{e:#?}\n"
                 )
             }
             LeekCompilerError::AstBuildError(e) => {
                 write!(
                     f,
                     "Ast Build Error: \n{e}\n=================================\n\n{e:#?}\n"
+                )
+            }
+            LeekCompilerError::TypeCheckingError(e) => {
+                write!(
+                    f,
+                    "Type Error: \n{e}\n=================================\n\n{e:#?}\n"
                 )
             }
 
