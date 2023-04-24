@@ -1025,8 +1025,6 @@ impl LeekLexer {
                 }
             }));
 
-            println!(" -> {:?}", token.as_ref().unwrap().as_ref().unwrap().kind);
-
             return token;
         }
 
