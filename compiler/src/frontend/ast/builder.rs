@@ -658,3 +658,84 @@ impl FromNode for StructDefinition {
         todo!()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::frontend::ast::*;
+    use crate::frontend::parse_string;
+    use crate::frontend::position::*;
+
+    use indoc::indoc;
+
+    macro_rules! assert_ast_eq {
+        ($ast:expr, $expected:expr) => {
+            if $ast != $expected {
+                use ansi_term::Color;
+
+                let mut output = String::new();
+
+                for diff in diff::lines(&format!("{:#?}", $ast), &format!("{:#?}", $expected)) {
+                    match diff {
+                        diff::Result::Left(l) => {
+                            output.push_str(&format!("{}", Color::Red.paint(format!("-{}\n", l))))
+                        }
+                        diff::Result::Both(l, _) => output.push_str(&format!(" {}\n", l)),
+                        diff::Result::Right(r) => {
+                            output.push_str(&format!("{}", Color::Green.paint(format!("+{}\n", r))))
+                        }
+                    }
+                }
+
+                panic!("AST did not match expected: \n{output}");
+            }
+        };
+    }
+
+    #[test]
+    fn should_parse_recursive_blocks() {
+        const INPUT: &str = indoc! {r#"
+        fn main() {
+            {
+                println("Hello, world!")
+            }
+        }
+        "#};
+
+        let ast = parse_string(INPUT.to_owned()).unwrap_or_else(|e| panic!("{e}"));
+
+        let expected = LeekAst {
+            source_file: SourceFile {
+                path: None,
+                content: INPUT.to_owned(),
+            },
+            root: Program {
+                constant_variables: vec![],
+                static_variables: vec![],
+                function_definitions: vec![FunctionDefinition {
+                    name: "main".to_owned(),
+                    struct_identifier: None,
+                    parameters: vec![],
+                    return_type: Type::Primitive(PrimitiveKind::Void),
+                    body: Block {
+                        statements: vec![Statement::Block(Block {
+                            statements: vec![Statement::FunctionCall(FunctionCallExpression {
+                                identifier: QualifiedIdentifier::new(None, "println".to_owned()),
+                                arguments: vec![Expression::Atom(Atom::Literal(Literal {
+                                    kind: LiteralKind::String("\"Hello, world!\"".to_owned()),
+                                    span: Span::new(
+                                        Position { row: 2, col: 16 },
+                                        Position { row: 2, col: 31 },
+                                    ),
+                                }))],
+                            })],
+                        })],
+                    },
+                }],
+                struct_definitions: vec![],
+                enum_definitions: vec![],
+            },
+        };
+
+        assert_ast_eq!(ast, expected);
+    }
+}
