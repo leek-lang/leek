@@ -7,6 +7,8 @@ use crate::{
     frontend::position::{SourceFile, Span},
 };
 
+use super::position::highlight_span;
+
 #[derive(Debug)]
 pub struct ParseTree {
     pub root: ParseTreeNode,
@@ -125,64 +127,26 @@ pub struct ParserError {
 
 impl Display for ParserError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "{}", self.span.start())?;
-
-        let lines: Vec<_> = self.source_file.content.lines().collect();
-
-        // Print the lines around and including the one with the error
-        let start = if self.span.start().row < 2 {
-            0
-        } else {
-            self.span.start().row - 2
-        } as usize;
-
-        // Print each line and the line number
-        for (n, line) in lines[start..(self.span.start().row + 1) as usize]
-            .iter()
-            .enumerate()
-        {
-            writeln!(f, "{:>3}: {}", n + start + 1, line)?;
-        }
-
-        let prepending_count = (self.span.start().col + 5) as usize;
-        let token_width = if self.span.end().row == self.span.start().row {
-            self.span.end().col - self.span.start().col
-        } else {
-            1
-        } as usize;
-
-        // Print the space before the highlight
-        write!(f, "{}", String::from(" ").repeat(prepending_count))?;
-
-        // Print the underline highlight
-        writeln!(
-            f,
-            "{}",
-            String::from("^").repeat(if token_width > 0 { token_width } else { 1 })
-        )?;
-
-        // Print the space before "here"
-        write!(f, "{}", String::from(" ").repeat(prepending_count))?;
-
-        writeln!(f, "{}", "here")?;
-        writeln!(f)?;
-
         match &self.kind {
             ParserErrorKind::UnexpectedToken { expected, found } => writeln!(
                 f,
                 "Unexpected token {:?}. Expected one of: {:?}",
                 found, expected
-            ),
+            )?,
             ParserErrorKind::UnexpectedKeyword { expected, found } => writeln!(
                 f,
                 "Unexpected keyword {:?}. Expected one of: {:?}",
                 found, expected
-            ),
-            ParserErrorKind::UnexpectedEndOfInput => writeln!(f, "Unexpected end of input."),
+            )?,
+            ParserErrorKind::UnexpectedEndOfInput => writeln!(f, "Unexpected end of input.")?,
             ParserErrorKind::IndexIntoNonIdentifier => {
-                writeln!(f, "Cannot access field of non-struct object.")
+                writeln!(f, "Cannot access field of non-struct object.")?
             }
         }
+
+        highlight_span(f, &self.source_file, self.span)?;
+
+        Ok(())
     }
 }
 
