@@ -1,5 +1,10 @@
 # Leek
 
+<p align="center">
+    <img src="https://user-images.githubusercontent.com/49880655/234137537-847f2b36-6aad-43d8-9c74-69c5b7231d3d.svg" width="250">
+</p>
+
+
 In modern times, there are many strategies for managing memory such as reference counting, garbage collection, RAII, and of course manual memory management.
 However, with many gigabytes of RAM now an established standard in new systems, why bother worrying about memory at all?
 
@@ -8,6 +13,12 @@ Memory is allocated as needed and avoids slow de-allocation calls by not doing t
 Your operating system is more than capable of freeing the used memory when your program exits, so why bother incurring wasteful runtime cost?
 
 Leek enables you to move fast and run away from your problems. Even if you manage to use up all of the available system memory, modern operating systems have sophisticated swap file implementations. This allows you to use disk space as RAM when there is no physical memory left.
+
+## Edge Ready
+
+Modern serverices and applications don't keep a persistent server running. Thats old school! Now, serverless edge functions are dominating the industry with low deployment costs and automatic scaling.
+
+Leek's memory management ideology aligns very well with the edge computing model. Leek starts fast and doesn't worry about deallocating memory since the instance will only live for a very short period of time. This makes Leek a great choice for your next serverless edge application (once an HTTP package is implemented).
 
 ## Examples
 
