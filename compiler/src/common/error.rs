@@ -1,21 +1,25 @@
 use std::fmt::Display;
 
 use crate::{
-    backend::{type_checking::TypeCheckingError, CodeGenError},
+    backend::CodeGenError,
     frontend::{
         ast::builder::AstBuildError, lexer::LexerError, parser::ParserError, reader::FileReadError,
     },
+    middle::type_checking::TypeCheckingError,
 };
+
+// TODO: Refactor with thiserror
 
 #[derive(Debug)]
 pub enum LeekCompilerError {
-    FileReadError(FileReadError),
-    LexerError(LexerError),
-    ParserError(ParserError),
-    AstBuildError(AstBuildError),
-    AstLoweringError,
-    TypeCheckingError(TypeCheckingError),
-    CodeGenError(CodeGenError),
+    FileReadError(FileReadError),         // File -> Chars
+    LexerError(LexerError),               // Chars -> Tokens
+    ParserError(ParserError),             // Tokens -> Parse Tree
+    AstBuildError(AstBuildError),         // Parse Tree -> AST
+    AstLoweringError,                     // AST -> HIR
+    TypeCheckingError(TypeCheckingError), // HIR -> MIR
+    LowLevelLoweringError,                // MIR -> LIR
+    CodeGenError(CodeGenError),           // LIR -> ASM
 }
 
 impl LeekCompilerError {

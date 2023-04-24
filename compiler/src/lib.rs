@@ -4,6 +4,7 @@
 pub mod backend;
 pub mod common;
 pub mod frontend;
+pub mod middle;
 
 // #[cfg(test)]
 // mod test {

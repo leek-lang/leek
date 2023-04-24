@@ -4,13 +4,13 @@ use crate::frontend::ast::LeekAst;
 
 use self::x86_linux_gnu::CodeGeneratorX86LinuxGNU;
 
-use super::CompilerOptions;
+use super::LeekCompilerConfig;
 
 pub mod x86_64_linux_gnu;
 pub mod x86_linux_gnu;
 
 pub trait CodeGenerator {
-    fn generate_assembly(&self, ast: LeekAst, compiler_options: &CompilerOptions) -> String;
+    fn generate_assembly(&self, ast: LeekAst, compiler_options: &LeekCompilerConfig) -> String;
     fn create_assembler_command(&self, input_file: &PathBuf, output_file: &PathBuf) -> Command;
     fn create_linker_command(&self, input_file: &PathBuf, output_file: &PathBuf) -> Command;
 }

@@ -1,15 +1,16 @@
 use std::path::PathBuf;
 
 use clap::Parser;
-use leek::backend::{
-    codegen::CodeGenTarget, optimization::OptimizationLevel, BuildMode, CompilerOptions, EmitMode,
+use leek::{
+    backend::codegen::CodeGenTarget,
+    common::config::{BuildMode, EmitMode, LeekCompilerConfig, OptimizationLevel},
 };
 
 #[derive(Parser, Debug)]
 #[command(author, version, about = "A bootstrap compiler for the Leek language", long_about = None)]
 struct LeekCompilerArgs {
     #[arg(required = true)]
-    input_files: Vec<String>,
+    input_files: Vec<PathBuf>,
     #[arg(short, long, value_enum, value_name = "EMIT_MODE", default_value_t = EmitMode::default(), help = "Specifies what kind of output to generate")]
     emit: EmitMode,
     #[arg(long, help = "Builds in release mode without debugging information")]
@@ -26,29 +27,35 @@ struct LeekCompilerArgs {
     opt_level: OptimizationLevel,
 }
 
+impl Into<LeekCompilerConfig> for LeekCompilerArgs {
+    fn into(self) -> LeekCompilerConfig {
+        LeekCompilerConfig {
+            opt_level: self.opt_level,
+            build_mode: if self.release {
+                BuildMode::Release
+            } else {
+                BuildMode::Debug
+            },
+            emit_mode: self.emit,
+            input_files: self.input_files,
+            output_name: self.output,
+            verbose: self.verbose,
+        }
+    }
+}
+
 fn main() {
+    // Get the command line arguments
     let args = LeekCompilerArgs::parse();
 
-    for file in &args.input_files {
+    // Convert to the global config struct
+    let config: LeekCompilerConfig = args.into();
+
+    for file in &config.input_files {
         let ast = leek::frontend::parse_file(file.into()).unwrap_or_else(|e| e.report());
         println!("{ast:#?}");
 
-        leek::backend::compile_ast(
-            ast,
-            CompilerOptions {
-                opt_level: args.opt_level,
-                build_mode: if args.release {
-                    BuildMode::Release
-                } else {
-                    BuildMode::Debug
-                },
-                emit_mode: args.emit,
-                input_file: PathBuf::from(args.input_files[0].clone()),
-                output_name: args.output.clone(),
-                verbose: args.verbose,
-            },
-            CodeGenTarget::x86LinuxGNU,
-        )
-        .unwrap_or_else(|e| e.report());
+        leek::backend::compile_ast(ast, &config, CodeGenTarget::x86LinuxGNU)
+            .unwrap_or_else(|e| e.report());
     }
 }
