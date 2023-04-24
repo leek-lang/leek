@@ -1,3 +1,5 @@
+use crate::common::lang::{AssignmentOperator, BinaryOperator, PrimitiveKind, UnaryOperator};
+
 use super::position::{SourceFile, Span};
 
 pub mod builder;
@@ -48,21 +50,6 @@ impl QualifiedIdentifier {
 }
 
 #[derive(Debug)]
-pub enum PrimitiveKind {
-    Void,
-    I8,
-    I16,
-    I32,
-    I64,
-    U8,
-    U16,
-    U32,
-    U64,
-    F32,
-    F64,
-}
-
-#[derive(Debug)]
 pub struct VariableDeclaration {
     pub kind: VariableDeclarationKind,
     pub identifier: String,
@@ -82,26 +69,6 @@ pub struct VariableAssignment {
     pub identifier: QualifiedIdentifier,
     pub operator: AssignmentOperator,
     pub value: Expression,
-}
-
-#[derive(Debug)]
-pub enum AssignmentOperator {
-    Equals,
-    PlusEquals,
-    MinusEquals,
-    MultiplyEquals,
-    DivideEquals,
-    ModuloEquals,
-    BitwiseNotEquals,
-    BitwiseXorEquals,
-    BitwiseOrEquals,
-    BitwiseAndEquals,
-    LogicalNotEquals,
-    ExponentiationEquals,
-    LeftShiftEquals,
-    RightShiftEquals,
-    LogicalOrEquals,
-    LogicalAndEquals,
 }
 
 #[derive(Debug)]
@@ -161,38 +128,9 @@ pub struct UnaryExpression {
 }
 
 #[derive(Debug)]
-pub enum UnaryOperator {
-    BitwiseNot,
-    LogicalNot,
-    Asterisk,
-}
-
-#[derive(Debug)]
 pub struct BinaryExpression {
     pub binary_operator: BinaryOperator,
     pub expression: Box<Expression>,
-}
-
-#[derive(Debug)]
-pub enum BinaryOperator {
-    DoubleEquals,
-    LessThan,
-    LessThanOrEqual,
-    GreaterThan,
-    GreaterThanOrEqual,
-    Plus,
-    Minus,
-    Asterisk,
-    Divide,
-    Modulo,
-    BitwiseXor,
-    BitwiseOr,
-    BitwiseAnd,
-    Exponentiation,
-    LeftShift,
-    RightShift,
-    LogicalOr,
-    LogicalAnd,
 }
 
 #[derive(Debug)]
