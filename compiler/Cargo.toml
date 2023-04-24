@@ -9,5 +9,6 @@ edition = "2021"
 ansi_term = "0.12.1"
 clap = { version = "4.1.6", features = ["derive"] }
 diff = "0.1.13"
+indoc = "2.0.1"
 itertools = "0.10.5"
 mktemp = "0.5.0"

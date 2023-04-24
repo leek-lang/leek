@@ -2,7 +2,9 @@ use std::fmt::Display;
 
 use crate::{
     backend::CodeGenError,
-    frontend::{ast::builder::AstBuildError, lexer::LexerError, parser::ParserError, reader::FileReadError},
+    frontend::{
+        ast::builder::AstBuildError, lexer::LexerError, parser::ParserError, reader::FileReadError,
+    },
 };
 
 #[derive(Debug)]
