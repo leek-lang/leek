@@ -7,13 +7,13 @@ use crate::frontend::{
         StructInitialization, StructMethodCall, UnaryExpression, VariableDeclaration,
         VariableDeclarationKind,
     },
-    lexer::{KeywordKind, LeekToken, LeekTokenKind},
+    lexer::{IntegerLiteralKind, KeywordKind, LeekToken, LeekTokenKind},
     parser::{ParseTree, ParseTreeNode, ParseTreeNodeNonTerminal, ParseTreeNonTerminalKind},
 };
 
 use super::{
-    Expression, LeekAst, LiteralKind, PrimitiveKind, Program, QualifiedIdentifier, Type,
-    VariableAssignment,
+    Expression, IntegerKind, LeekAst, Literal, LiteralKind, PrimitiveKind, Program,
+    QualifiedIdentifier, Type, VariableAssignment,
 };
 
 // TODO: Add spans for ast nodes
@@ -264,18 +264,50 @@ impl FromNode for Expression {
     }
 }
 
+impl TryFrom<LeekToken> for IntegerKind {
+    type Error = AstBuildError;
+
+    fn try_from(value: LeekToken) -> Result<Self, Self::Error> {
+        let LeekTokenKind::IntegerLiteral(integer) = value.kind else {
+            return Err(AstBuildError {
+                kind: AstBuildErrorKind::InvalidNode(ParseTreeNode::Terminal(value))
+            })
+       };
+
+        // TODO: add support for type specifiers like `u32` and `i32`
+
+        let integer_kind = match integer {
+            IntegerLiteralKind::Decimal => {
+                let value = value.text.parse::<i32>().map_err(|_| AstBuildError {
+                    kind: AstBuildErrorKind::InvalidNode(ParseTreeNode::Terminal(value)),
+                })?;
+
+                IntegerKind::I32(value)
+            }
+            IntegerLiteralKind::Hexadecimal => todo!(),
+            IntegerLiteralKind::Binary => todo!(),
+            IntegerLiteralKind::Octal => todo!(),
+        };
+
+        Ok(integer_kind)
+    }
+}
+
 impl FromNode for Atom {
     fn from_node(node: &ParseTreeNodeNonTerminal) -> Result<Self, AstBuildError> {
         assert_nt_kind(node, ParseTreeNonTerminalKind::Atom)?;
 
         let atom = match &node.children[0] {
             ParseTreeNode::Terminal(terminal) => match terminal.kind {
-                LeekTokenKind::StringLiteral => Atom::Literal(super::Literal {
+                LeekTokenKind::StringLiteral => Atom::Literal(Literal {
                     kind: LiteralKind::String(terminal.text.clone()),
                     span: terminal.span.clone(),
                 }),
                 LeekTokenKind::CharLiteral => todo!(),
-                LeekTokenKind::IntegerLiteral(_) => todo!(),
+                LeekTokenKind::IntegerLiteral(_) => Atom::Literal(Literal {
+                    kind: LiteralKind::Integer(IntegerKind::try_from(terminal.clone())?),
+                    span: terminal.span.clone(),
+                }),
                 LeekTokenKind::FloatLiteral => todo!(),
                 LeekTokenKind::OpenParen => {
                     let expression = Expression::from_node(node.children[1].non_terminal())?;
