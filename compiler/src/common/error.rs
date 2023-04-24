@@ -2,9 +2,7 @@ use std::fmt::Display;
 
 use crate::{
     backend::CodeGenError,
-    frontend::{
-        ast::builder::AstBuildError, lexer::LexerError, parser::ParserError, reader::FileReadError,
-    },
+    frontend::{lexer::LexerError, parser::ParserError, reader::FileReadError},
     middle::type_checking::TypeCheckingError,
 };
 
@@ -15,7 +13,6 @@ pub enum LeekCompilerError {
     FileReadError(FileReadError),         // File -> Chars
     LexerError(LexerError),               // Chars -> Tokens
     ParserError(ParserError),             // Tokens -> Parse Tree
-    AstBuildError(AstBuildError),         // Parse Tree -> AST
     AstLoweringError,                     // AST -> HIR
     TypeCheckingError(TypeCheckingError), // HIR -> MIR
     LowLevelLoweringError,                // MIR -> LIR
@@ -40,12 +37,6 @@ impl Display for LeekCompilerError {
                 write!(
                     f,
                     "Parser Error: {e}\n=================================\n\n{e:#?}\n"
-                )
-            }
-            LeekCompilerError::AstBuildError(e) => {
-                write!(
-                    f,
-                    "Ast Build Error: \n{e}\n=================================\n\n{e:#?}\n"
                 )
             }
             LeekCompilerError::TypeCheckingError(e) => {
@@ -75,12 +66,6 @@ impl From<LexerError> for LeekCompilerError {
 impl From<ParserError> for LeekCompilerError {
     fn from(error: ParserError) -> Self {
         LeekCompilerError::ParserError(error)
-    }
-}
-
-impl From<AstBuildError> for LeekCompilerError {
-    fn from(error: AstBuildError) -> Self {
-        LeekCompilerError::AstBuildError(error)
     }
 }
 

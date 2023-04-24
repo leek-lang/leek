@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use core::panic;
 
 use crate::frontend::{
     ast::{
@@ -18,28 +18,10 @@ use super::{
 
 // TODO: Add spans for ast nodes
 
-#[derive(Debug)]
-pub struct AstBuildError {
-    pub kind: AstBuildErrorKind,
-}
-
-impl Display for AstBuildError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match &self.kind {
-            AstBuildErrorKind::InvalidNode(node) => {
-                writeln!(f, "Invalid ParseTreeNode: {:?}", node)
-            }
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum AstBuildErrorKind {
-    InvalidNode(ParseTreeNode),
-}
-
 impl LeekAst {
-    pub fn build_from(parse_tree: ParseTree) -> Result<Self, AstBuildError> {
+    /// This function is infallible. If there is an error, it is due to a bug in the parser.
+    /// As such, this function will panic if there is an error.
+    pub fn build_from(parse_tree: ParseTree) -> Self {
         let root = Program {
             constant_variables: vec![],
             static_variables: vec![],
@@ -53,121 +35,88 @@ impl LeekAst {
             root,
         };
 
-        ast.populate(parse_tree)?;
+        ast.populate(parse_tree);
 
-        Ok(ast)
+        ast
     }
 
-    fn populate(&mut self, parse_tree: ParseTree) -> Result<(), AstBuildError> {
+    fn populate(&mut self, parse_tree: ParseTree) {
         let program = parse_tree.root.non_terminal();
         assert!(program.kind == ParseTreeNonTerminalKind::Program);
 
         for node in &program.children {
             let ParseTreeNode::NonTerminal(top_level_node) = node else {
-                return Err(node.into())
+                panic!("Expected top level node to be non-terminal, found {:?}", node);
             };
 
             match top_level_node.kind {
                 ParseTreeNonTerminalKind::ConstantVariableDeclaration => self
                     .root
                     .constant_variables
-                    .push(VariableDeclaration::from_node(top_level_node)?),
+                    .push(VariableDeclaration::from_node(top_level_node)),
                 ParseTreeNonTerminalKind::StaticVariableDeclaration => self
                     .root
                     .static_variables
-                    .push(VariableDeclaration::from_node(top_level_node)?),
+                    .push(VariableDeclaration::from_node(top_level_node)),
                 ParseTreeNonTerminalKind::FunctionDefinition => self
                     .root
                     .function_definitions
-                    .push(FunctionDefinition::from_node(top_level_node)?),
+                    .push(FunctionDefinition::from_node(top_level_node)),
                 ParseTreeNonTerminalKind::StructDefinition => self
                     .root
                     .struct_definitions
-                    .push(StructDefinition::from_node(top_level_node)?),
-                _ => return Err(node.into()),
+                    .push(StructDefinition::from_node(top_level_node)),
+                _ => panic!("Unexpected top level node: {:?}", top_level_node),
             }
         }
-
-        Ok(())
     }
 }
 
-fn assert_nt_kind(
-    node: &ParseTreeNodeNonTerminal,
-    kind: ParseTreeNonTerminalKind,
-) -> Result<(), AstBuildError> {
-    if node.kind != kind {
-        return Err(node.to_owned().into());
-    }
-
-    Ok(())
+#[inline]
+fn assert_nt_kind(node: &ParseTreeNodeNonTerminal, kind: ParseTreeNonTerminalKind) {
+    assert_eq!(
+        node.kind, kind,
+        "Expected non-terminal node {:?}, found {:?}",
+        kind, node.kind
+    );
 }
 
-fn assert_nt_kind_of(
-    node: &ParseTreeNodeNonTerminal,
-    kinds: Vec<ParseTreeNonTerminalKind>,
-) -> Result<(), AstBuildError> {
-    if !kinds.contains(&node.kind) {
-        return Err(node.to_owned().into());
-    }
-
-    Ok(())
-}
-
-impl From<ParseTreeNode> for AstBuildError {
-    fn from(node: ParseTreeNode) -> Self {
-        AstBuildError {
-            kind: AstBuildErrorKind::InvalidNode(node),
-        }
-    }
-}
-
-impl From<ParseTreeNodeNonTerminal> for AstBuildError {
-    fn from(node: ParseTreeNodeNonTerminal) -> Self {
-        AstBuildError {
-            kind: AstBuildErrorKind::InvalidNode(ParseTreeNode::NonTerminal(node)),
-        }
-    }
-}
-
-impl From<&ParseTreeNode> for AstBuildError {
-    fn from(node: &ParseTreeNode) -> Self {
-        node.to_owned().into()
-    }
-}
-
-impl From<&ParseTreeNodeNonTerminal> for AstBuildError {
-    fn from(node: &ParseTreeNodeNonTerminal) -> Self {
-        node.to_owned().into()
-    }
+#[inline]
+fn assert_nt_kind_of(node: &ParseTreeNodeNonTerminal, kinds: &[ParseTreeNonTerminalKind]) {
+    assert!(
+        kinds.contains(&node.kind),
+        "Expected non-terminal node {:?}, found {:?}",
+        kinds,
+        node.kind
+    );
 }
 
 trait FromNode
 where
     Self: Sized,
 {
-    fn from_node(node: &ParseTreeNodeNonTerminal) -> Result<Self, AstBuildError>;
+    fn from_node(node: &ParseTreeNodeNonTerminal) -> Self;
 }
 
 trait FromTerminal
 where
     Self: Sized,
 {
-    fn from_terminal(node: &LeekToken) -> Result<Self, AstBuildError>;
+    fn from_terminal(node: &LeekToken) -> Self;
 }
 
 impl FromNode for Type {
-    fn from_node(type_node: &ParseTreeNodeNonTerminal) -> Result<Self, AstBuildError> {
-        assert_nt_kind(type_node, ParseTreeNonTerminalKind::Type)?;
+    fn from_node(type_node: &ParseTreeNodeNonTerminal) -> Self {
+        assert_nt_kind(type_node, ParseTreeNonTerminalKind::Type);
 
         let qualified_identifier_node = &type_node.children[0].non_terminal();
 
         assert_nt_kind(
             qualified_identifier_node,
             ParseTreeNonTerminalKind::QualifiedIdentifier,
-        )?;
+        );
 
-        let identifier = QualifiedIdentifier::from_node(qualified_identifier_node)?;
+        let identifier = QualifiedIdentifier::from_node(qualified_identifier_node);
 
         // Check if is primitive
 
@@ -184,18 +133,18 @@ impl FromNode for Type {
                 "u64" => PrimitiveKind::U64,
                 "f32" => PrimitiveKind::F32,
                 "f64" => PrimitiveKind::F64,
-                _ => return Ok(Type::Identifier(identifier)),
+                _ => return Type::Identifier(identifier),
             };
 
-            return Ok(Type::Primitive(primitive_kind));
+            return Type::Primitive(primitive_kind);
         }
 
-        Ok(Type::Identifier(identifier))
+        Type::Identifier(identifier)
     }
 }
 
 impl FromNode for QualifiedIdentifier {
-    fn from_node(node: &ParseTreeNodeNonTerminal) -> Result<Self, AstBuildError> {
+    fn from_node(node: &ParseTreeNodeNonTerminal) -> Self {
         assert!(node.children.len() >= 1);
 
         let name = node.children.last().unwrap().terminal_token().text.clone();
@@ -216,19 +165,19 @@ impl FromNode for QualifiedIdentifier {
             namespace = Some(parts)
         }
 
-        Ok(QualifiedIdentifier { namespace, name })
+        QualifiedIdentifier { namespace, name }
     }
 }
 
 impl FromNode for VariableDeclaration {
-    fn from_node(_node: &ParseTreeNodeNonTerminal) -> Result<Self, AstBuildError> {
+    fn from_node(_node: &ParseTreeNodeNonTerminal) -> Self {
         todo!()
     }
 }
 
 impl FromNode for Expression {
-    fn from_node(node: &ParseTreeNodeNonTerminal) -> Result<Self, AstBuildError> {
-        assert_nt_kind(node, ParseTreeNonTerminalKind::Expression)?;
+    fn from_node(node: &ParseTreeNodeNonTerminal) -> Self {
+        assert_nt_kind(node, ParseTreeNonTerminalKind::Expression);
 
         assert_eq!(node.children.len(), 1);
 
@@ -236,62 +185,58 @@ impl FromNode for Expression {
 
         match expression_node.kind {
             ParseTreeNonTerminalKind::Atom => {
-                let atom = Atom::from_node(expression_node)?;
+                let atom = Atom::from_node(expression_node);
 
-                Ok(Expression::Atom(atom))
+                Expression::Atom(atom)
             }
             ParseTreeNonTerminalKind::UnaryExpression => {
-                let unary_expression = UnaryExpression::from_node(expression_node)?;
+                let unary_expression = UnaryExpression::from_node(expression_node);
 
-                Ok(Expression::UnaryExpression(unary_expression))
+                Expression::UnaryExpression(unary_expression)
             }
             ParseTreeNonTerminalKind::FunctionCallExpression => {
-                let function_call_expression = FunctionCallExpression::from_node(expression_node)?;
+                let function_call_expression = FunctionCallExpression::from_node(expression_node);
 
-                Ok(Expression::FunctionCallExpression(function_call_expression))
+                Expression::FunctionCallExpression(function_call_expression)
             }
             ParseTreeNonTerminalKind::BinaryExpression => {
-                let binary_expression = BinaryExpression::from_node(expression_node)?;
+                let binary_expression = BinaryExpression::from_node(expression_node);
 
-                Ok(Expression::BinaryExpression(binary_expression))
+                Expression::BinaryExpression(binary_expression)
             }
             ParseTreeNonTerminalKind::StructInitialization => {
-                let struct_initialization = StructInitialization::from_node(expression_node)?;
+                let struct_initialization = StructInitialization::from_node(expression_node);
 
-                Ok(Expression::StructInitialization(struct_initialization))
+                Expression::StructInitialization(struct_initialization)
             }
             ParseTreeNonTerminalKind::StructFieldAccess => {
-                let struct_field_access = StructFieldAccess::from_node(expression_node)?;
+                let struct_field_access = StructFieldAccess::from_node(expression_node);
 
-                Ok(Expression::StructFieldAccess(struct_field_access))
+                Expression::StructFieldAccess(struct_field_access)
             }
             ParseTreeNonTerminalKind::StructMethodCall => {
-                let struct_method_call = StructMethodCall::from_node(expression_node)?;
+                let struct_method_call = StructMethodCall::from_node(expression_node);
 
-                Ok(Expression::StructMethodCall(struct_method_call))
+                Expression::StructMethodCall(struct_method_call)
             }
-            _ => unreachable!("Found invalid expression node"),
+            _ => unreachable!("Found invalid node in expression"),
         }
     }
 }
 
-impl TryFrom<LeekToken> for IntegerKind {
-    type Error = AstBuildError;
-
-    fn try_from(value: LeekToken) -> Result<Self, Self::Error> {
+impl From<LeekToken> for IntegerKind {
+    fn from(value: LeekToken) -> Self {
         let LeekTokenKind::IntegerLiteral(integer) = value.kind else {
-            return Err(AstBuildError {
-                kind: AstBuildErrorKind::InvalidNode(ParseTreeNode::Terminal(value))
-            })
+           panic!("Expected integer literal, found {:?}", value.kind)
        };
 
         // TODO: add support for type specifiers like `u32` and `i32`
 
         let integer_kind = match integer {
             IntegerLiteralKind::Decimal => {
-                let value = value.text.parse::<i32>().map_err(|_| AstBuildError {
-                    kind: AstBuildErrorKind::InvalidNode(ParseTreeNode::Terminal(value)),
-                })?;
+                let Ok(value) = value.text.parse::<i32>() else {
+                    panic!("Could not parse integer literal from token text")
+                };
 
                 IntegerKind::I32(value)
             }
@@ -300,13 +245,13 @@ impl TryFrom<LeekToken> for IntegerKind {
             IntegerLiteralKind::Octal => todo!(),
         };
 
-        Ok(integer_kind)
+        integer_kind
     }
 }
 
 impl FromNode for Atom {
-    fn from_node(node: &ParseTreeNodeNonTerminal) -> Result<Self, AstBuildError> {
-        assert_nt_kind(node, ParseTreeNonTerminalKind::Atom)?;
+    fn from_node(node: &ParseTreeNodeNonTerminal) -> Self {
+        assert_nt_kind(node, ParseTreeNonTerminalKind::Atom);
 
         let atom = match &node.children[0] {
             ParseTreeNode::Terminal(terminal) => match terminal.kind {
@@ -316,12 +261,12 @@ impl FromNode for Atom {
                 }),
                 LeekTokenKind::CharLiteral => todo!(),
                 LeekTokenKind::IntegerLiteral(_) => Atom::Literal(Literal {
-                    kind: LiteralKind::Integer(IntegerKind::try_from(terminal.clone())?),
+                    kind: LiteralKind::Integer(IntegerKind::from(terminal.clone())),
                     span: terminal.span.clone(),
                 }),
                 LeekTokenKind::FloatLiteral => todo!(),
                 LeekTokenKind::OpenParen => {
-                    let expression = Expression::from_node(node.children[1].non_terminal())?;
+                    let expression = Expression::from_node(node.children[1].non_terminal());
 
                     assert_eq!(
                         node.children[2].terminal_token().kind,
@@ -334,7 +279,7 @@ impl FromNode for Atom {
             },
             ParseTreeNode::NonTerminal(non_terminal) => match non_terminal.kind {
                 ParseTreeNonTerminalKind::QualifiedIdentifier => {
-                    let identifier = QualifiedIdentifier::from_node(non_terminal)?;
+                    let identifier = QualifiedIdentifier::from_node(non_terminal);
 
                     Atom::QualifiedIdentifier(identifier)
                 }
@@ -342,24 +287,24 @@ impl FromNode for Atom {
             },
         };
 
-        Ok(atom)
+        atom
     }
 }
 
 impl FromNode for UnaryExpression {
-    fn from_node(_node: &ParseTreeNodeNonTerminal) -> Result<Self, AstBuildError> {
+    fn from_node(_node: &ParseTreeNodeNonTerminal) -> Self {
         todo!("build from unary expression")
     }
 }
 
 impl FromNode for FunctionCallExpression {
-    fn from_node(node: &ParseTreeNodeNonTerminal) -> Result<Self, AstBuildError> {
-        assert_nt_kind(node, ParseTreeNonTerminalKind::FunctionCallExpression)?;
+    fn from_node(node: &ParseTreeNodeNonTerminal) -> Self {
+        assert_nt_kind(node, ParseTreeNonTerminalKind::FunctionCallExpression);
 
         assert!(node.children.len() >= 3);
         assert!(node.children.len() <= 4);
 
-        let identifier = QualifiedIdentifier::from_node(&node.children[0].non_terminal())?;
+        let identifier = QualifiedIdentifier::from_node(&node.children[0].non_terminal());
 
         assert_eq!(
             node.children[1].terminal_token().kind,
@@ -377,7 +322,7 @@ impl FromNode for FunctionCallExpression {
                     LeekTokenKind::CloseParen
                 );
 
-                assert_nt_kind(&non_terminal, ParseTreeNonTerminalKind::FunctionArguments)?;
+                assert_nt_kind(&non_terminal, ParseTreeNonTerminalKind::FunctionArguments);
 
                 let mut arguments = vec![];
 
@@ -387,7 +332,7 @@ impl FromNode for FunctionCallExpression {
                         continue;
                     }
 
-                    let argument = Expression::from_node(&argument.non_terminal())?;
+                    let argument = Expression::from_node(&argument.non_terminal());
 
                     arguments.push(argument)
                 }
@@ -396,40 +341,40 @@ impl FromNode for FunctionCallExpression {
             }
         };
 
-        Ok(FunctionCallExpression {
+        FunctionCallExpression {
             identifier,
             arguments,
-        })
+        }
     }
 }
 
 impl FromNode for BinaryExpression {
-    fn from_node(_node: &ParseTreeNodeNonTerminal) -> Result<Self, AstBuildError> {
+    fn from_node(_node: &ParseTreeNodeNonTerminal) -> Self {
         todo!("build from binary expression")
     }
 }
 
 impl FromNode for StructInitialization {
-    fn from_node(_node: &ParseTreeNodeNonTerminal) -> Result<Self, AstBuildError> {
+    fn from_node(_node: &ParseTreeNodeNonTerminal) -> Self {
         todo!("build from struct initialization")
     }
 }
 
 impl FromNode for StructFieldAccess {
-    fn from_node(_node: &ParseTreeNodeNonTerminal) -> Result<Self, AstBuildError> {
+    fn from_node(_node: &ParseTreeNodeNonTerminal) -> Self {
         todo!("build from struct field access")
     }
 }
 
 impl FromNode for StructMethodCall {
-    fn from_node(_node: &ParseTreeNodeNonTerminal) -> Result<Self, AstBuildError> {
+    fn from_node(_node: &ParseTreeNodeNonTerminal) -> Self {
         todo!("build from struct method call")
     }
 }
 
 impl FromNode for FunctionDefinition {
-    fn from_node(node: &ParseTreeNodeNonTerminal) -> Result<Self, AstBuildError> {
-        assert_nt_kind(node, ParseTreeNonTerminalKind::FunctionDefinition)?;
+    fn from_node(node: &ParseTreeNodeNonTerminal) -> Self {
+        assert_nt_kind(node, ParseTreeNonTerminalKind::FunctionDefinition);
 
         /* Get Function Def Components */
 
@@ -456,7 +401,7 @@ impl FromNode for FunctionDefinition {
         /* Build the function identifier and struct identifier (if any) */
 
         let QualifiedIdentifier { name, namespace } =
-            QualifiedIdentifier::from_node(identifier.non_terminal())?;
+            QualifiedIdentifier::from_node(identifier.non_terminal());
 
         let struct_identifier = match namespace {
             Some(n) => {
@@ -464,7 +409,6 @@ impl FromNode for FunctionDefinition {
                     n.first().map(|s| s.to_owned())
                 } else {
                     panic!("Function name qualified identifier had more than one namespace value");
-                    return Err(node.into());
                 }
             }
             None => None,
@@ -476,7 +420,7 @@ impl FromNode for FunctionDefinition {
         assert_nt_kind(
             &parameters.non_terminal(),
             ParseTreeNonTerminalKind::FunctionParameters,
-        )?;
+        );
 
         let parameter_nodes = &parameters.non_terminal().children;
 
@@ -513,7 +457,7 @@ impl FromNode for FunctionDefinition {
 
             parameters.push(FunctionParameter::from_node(
                 parameter_nodes.get(i).unwrap().non_terminal(),
-            )?)
+            ))
         }
 
         let return_type = match return_type {
@@ -523,7 +467,7 @@ impl FromNode for FunctionDefinition {
                 assert_nt_kind(
                     &function_return_type,
                     ParseTreeNonTerminalKind::FunctionReturnType,
-                )?;
+                );
 
                 assert_eq!(
                     function_return_type.children[0].terminal_token().kind,
@@ -532,27 +476,27 @@ impl FromNode for FunctionDefinition {
 
                 let type_node = &function_return_type.children[1].non_terminal();
 
-                Type::from_node(type_node)?
+                Type::from_node(type_node)
             }
             None => Type::Primitive(PrimitiveKind::Void),
         };
 
         let block = block.non_terminal();
-        let block = Block::from_node(block)?;
+        let block = Block::from_node(block);
 
-        Ok(FunctionDefinition {
+        FunctionDefinition {
             name,
             struct_identifier,
             parameters,
             return_type,
             body: block,
-        })
+        }
     }
 }
 
 impl FromNode for FunctionParameter {
-    fn from_node(node: &ParseTreeNodeNonTerminal) -> Result<Self, AstBuildError> {
-        assert_nt_kind(node, ParseTreeNonTerminalKind::TypeAssociation)?;
+    fn from_node(node: &ParseTreeNodeNonTerminal) -> Self {
+        assert_nt_kind(node, ParseTreeNonTerminalKind::TypeAssociation);
 
         assert!(node.children.len() == 3);
 
@@ -560,15 +504,15 @@ impl FromNode for FunctionParameter {
 
         assert!(node.children[1].terminal_token().kind == LeekTokenKind::Colon);
 
-        let ty = Type::from_node(node.children[2].non_terminal())?;
+        let ty = Type::from_node(node.children[2].non_terminal());
 
-        Ok(FunctionParameter { identifier, ty })
+        FunctionParameter { identifier, ty }
     }
 }
 
 impl FromNode for Block {
-    fn from_node(node: &ParseTreeNodeNonTerminal) -> Result<Self, AstBuildError> {
-        assert_nt_kind(node, ParseTreeNonTerminalKind::Block)?;
+    fn from_node(node: &ParseTreeNodeNonTerminal) -> Self {
+        assert_nt_kind(node, ParseTreeNonTerminalKind::Block);
 
         assert!(node.children.len() >= 2);
 
@@ -585,17 +529,17 @@ impl FromNode for Block {
         let mut statements = Vec::new();
 
         for i in 1..node.children.len() - 1 {
-            let statement = Statement::from_node(node.children[i].non_terminal())?;
+            let statement = Statement::from_node(node.children[i].non_terminal());
             statements.push(statement);
         }
 
-        Ok(Block { statements })
+        Block { statements }
     }
 }
 
 impl FromTerminal for AssignmentOperator {
-    fn from_terminal(node: &LeekToken) -> Result<Self, AstBuildError> {
-        Ok(match node.kind {
+    fn from_terminal(node: &LeekToken) -> Self {
+        match node.kind {
             LeekTokenKind::Equals => Self::Equals,
             LeekTokenKind::PlusEquals => Self::PlusEquals,
             LeekTokenKind::MinusEquals => Self::MinusEquals,
@@ -613,27 +557,25 @@ impl FromTerminal for AssignmentOperator {
             LeekTokenKind::LogicalOrEquals => Self::LogicalOrEquals,
             LeekTokenKind::LogicalAndEquals => Self::LogicalAndEquals,
             _ => {
-                return Err(AstBuildError {
-                    kind: AstBuildErrorKind::InvalidNode(ParseTreeNode::Terminal(node.clone())),
-                })
+                panic!("Invalid assignment operator {:?}", node.kind);
             }
-        })
+        }
     }
 }
 
 impl FromNode for Statement {
-    fn from_node(node: &ParseTreeNodeNonTerminal) -> Result<Self, AstBuildError> {
+    fn from_node(node: &ParseTreeNodeNonTerminal) -> Self {
         assert_nt_kind_of(
             node,
-            vec![
+            &[
                 ParseTreeNonTerminalKind::Statement,
                 ParseTreeNonTerminalKind::Block,
             ],
-        )?;
+        );
 
         // Recursive block
         if let ParseTreeNonTerminalKind::Block = node.kind {
-            return Ok(Statement::Block(Block::from_node(node)?));
+            return Statement::Block(Block::from_node(node));
         }
 
         // TODO: Refactor this to match more non-terminal kinds
@@ -642,13 +584,13 @@ impl FromNode for Statement {
         match &node.children[0] {
             ParseTreeNode::Terminal(terminal) => {
                 let LeekTokenKind::Keyword(keyword) = terminal.kind else {
-                   return Err(node.children[0].clone().into());
+                   panic!("Expected keyword token in statement, got {:?}", terminal.kind)
                 };
 
                 match keyword {
                     KeywordKind::Yeet => {
-                        let expression = Expression::from_node(node.children[1].non_terminal())?;
-                        Ok(Statement::Yeet(expression))
+                        let expression = Expression::from_node(node.children[1].non_terminal());
+                        Statement::Yeet(expression)
                     }
                     KeywordKind::Leak => {
                         let identifier = &node.children[1].terminal_token();
@@ -668,14 +610,14 @@ impl FromNode for Statement {
                             }
                         }
 
-                        let value = Expression::from_node(node.children[3].non_terminal())?;
+                        let value = Expression::from_node(node.children[3].non_terminal());
 
-                        Ok(Statement::VariableDeclaration(VariableDeclaration {
+                        Statement::VariableDeclaration(VariableDeclaration {
                             kind: VariableDeclarationKind::Local,
                             identifier,
                             ty: None,
                             value,
-                        }))
+                        })
                     }
 
                     _ => unreachable!("Statement node began with non-statement keyword"),
@@ -684,20 +626,20 @@ impl FromNode for Statement {
             ParseTreeNode::NonTerminal(non_terminal) => match non_terminal.kind {
                 ParseTreeNonTerminalKind::QualifiedIdentifier => {
                     let identifier =
-                        QualifiedIdentifier::from_node(&node.children[0].non_terminal())?;
+                        QualifiedIdentifier::from_node(&node.children[0].non_terminal());
                     let operator =
-                        AssignmentOperator::from_terminal(&node.children[1].terminal_token())?;
-                    let value = Expression::from_node(&node.children[2].non_terminal())?;
+                        AssignmentOperator::from_terminal(&node.children[1].terminal_token());
+                    let value = Expression::from_node(&node.children[2].non_terminal());
 
-                    Ok(Statement::VariableAssignment(VariableAssignment {
+                    Statement::VariableAssignment(VariableAssignment {
                         identifier,
                         operator,
                         value,
-                    }))
+                    })
                 }
-                ParseTreeNonTerminalKind::FunctionCallExpression => Ok(Statement::FunctionCall(
-                    FunctionCallExpression::from_node(non_terminal)?,
-                )),
+                ParseTreeNonTerminalKind::FunctionCallExpression => {
+                    Statement::FunctionCall(FunctionCallExpression::from_node(non_terminal))
+                }
                 _ => unreachable!("Statement node began with non-statement non-terminal"),
             },
         }
@@ -705,8 +647,8 @@ impl FromNode for Statement {
 }
 
 impl FromNode for StructDefinition {
-    fn from_node(node: &ParseTreeNodeNonTerminal) -> Result<Self, AstBuildError> {
-        assert_nt_kind(node, ParseTreeNonTerminalKind::StructDefinition)?;
+    fn from_node(node: &ParseTreeNodeNonTerminal) -> Self {
+        assert_nt_kind(node, ParseTreeNonTerminalKind::StructDefinition);
 
         todo!()
     }
