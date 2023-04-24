@@ -19,7 +19,7 @@ use super::{
 // TODO: Add spans for ast nodes
 
 impl LeekAst {
-    /// This function is infallible. If there is an error, it is due to a bug in the parser.
+    /// This function is infallible. If there is an error, it is due to a bug in the parser or the builder.
     /// As such, this function will panic if there is an error.
     pub fn build_from(parse_tree: ParseTree) -> Self {
         let root = Program {
@@ -119,7 +119,6 @@ impl FromNode for Type {
         let identifier = QualifiedIdentifier::from_node(qualified_identifier_node);
 
         // Check if is primitive
-
         if !identifier.has_namespace() {
             let primitive_kind = match identifier.name().as_str() {
                 "void" => PrimitiveKind::Void,
@@ -145,14 +144,20 @@ impl FromNode for Type {
 
 impl FromNode for QualifiedIdentifier {
     fn from_node(node: &ParseTreeNodeNonTerminal) -> Self {
-        assert!(node.children.len() >= 1);
+        assert!(
+            node.children.len() >= 1,
+            "Qualified identifier node has no children"
+        );
 
         let name = node.children.last().unwrap().terminal_token().text.clone();
 
         let mut namespace = None;
 
         if node.children.len() > 1 {
-            assert!(node.children.len() % 2 == 1);
+            assert!(
+                node.children.len() % 2 == 1,
+                "Qualified identifier node has invalid children"
+            );
 
             let mut parts = vec![];
 
