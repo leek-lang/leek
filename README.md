@@ -1,5 +1,10 @@
 # Leek
 
+<p align="center">
+    <img src="https://user-images.githubusercontent.com/49880655/234137537-847f2b36-6aad-43d8-9c74-69c5b7231d3d.svg" width="250">
+</p>
+
+
 In modern times, there are many strategies for managing memory such as reference counting, garbage collection, RAII, and of course manual memory management.
 However, with many gigabytes of RAM now an established standard in new systems, why bother worrying about memory at all?
 
