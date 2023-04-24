@@ -27,7 +27,7 @@ macro_rules! display_buffer {
     ($buffer:expr, $name:literal, $buf_name:literal) => {
         $buffer
             .lines()
-            .filter_map(|line| line.ok())
+            .map_while(Result::ok)
             .for_each(|line| println!("[{}] ({}): {}", $name, $buf_name, line));
     };
 }
@@ -69,7 +69,7 @@ pub fn compile_ast(
     let assembly_file_path = build_dir.join("program.s");
 
     // Dynamically generate the assembly based on the compile target's code generator
-    let assembly = code_generator.generate_assembly(ast, &compiler_options);
+    let assembly = code_generator.generate_assembly(ast, compiler_options);
 
     // Prepend the assembly with a header containing the compiler version number
     let assembly = format!(

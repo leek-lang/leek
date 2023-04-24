@@ -61,8 +61,8 @@ impl Display for TypeCheckingError {
                     "Function identifier `{identifier_name}` is defined twice!"
                 )?;
 
-                highlight_span(f, &self.source_file, *first)?;
-                highlight_span(f, &self.source_file, *second)?;
+                highlight_span(f, &self.source_file, first.clone())?;
+                highlight_span(f, &self.source_file, second.clone())?;
             }
             _ => {
                 todo!("display messages for other errors")

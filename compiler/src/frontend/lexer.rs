@@ -175,66 +175,60 @@ pub enum LeekTokenKind {
 
 impl LeekTokenKind {
     pub fn is_assignment_operator(&self) -> bool {
-        match self {
+        matches!(
+            self,
             Self::Equals
-            | Self::PlusEquals
-            | Self::MinusEquals
-            | Self::MultiplyEquals
-            | Self::DivideEquals
-            | Self::ModuloEquals
-            | Self::BitwiseNotEquals
-            | Self::BitwiseXorEquals
-            | Self::BitwiseOrEquals
-            | Self::BitwiseAndEquals
-            | Self::LogicalNotEquals
-            | Self::ExponentiationEquals
-            | Self::LeftShiftEquals
-            | Self::RightShiftEquals
-            | Self::LogicalOrEquals
-            | Self::LogicalAndEquals => true,
-            _ => false,
-        }
+                | Self::PlusEquals
+                | Self::MinusEquals
+                | Self::MultiplyEquals
+                | Self::DivideEquals
+                | Self::ModuloEquals
+                | Self::BitwiseNotEquals
+                | Self::BitwiseXorEquals
+                | Self::BitwiseOrEquals
+                | Self::BitwiseAndEquals
+                | Self::LogicalNotEquals
+                | Self::ExponentiationEquals
+                | Self::LeftShiftEquals
+                | Self::RightShiftEquals
+                | Self::LogicalOrEquals
+                | Self::LogicalAndEquals
+        )
     }
 
     pub fn is_unary_operator(&self) -> bool {
-        match self {
-            Self::BitwiseNot | Self::LogicalNot | Self::Asterisk => true,
-            _ => false,
-        }
+        matches!(self, Self::BitwiseNot | Self::LogicalNot | Self::Asterisk)
     }
 
     pub fn is_binary_operator(&self) -> bool {
-        match self {
+        matches!(
+            self,
             Self::DoubleEquals
-            | Self::LessThan
-            | Self::LessThanOrEqual
-            | Self::GreaterThan
-            | Self::GreaterThanOrEqual
-            | Self::Plus
-            | Self::Minus
-            | Self::Asterisk
-            | Self::Divide
-            | Self::Modulo
-            | Self::BitwiseXor
-            | Self::BitwiseOr
-            | Self::BitwiseAnd
-            | Self::Exponentiation
-            | Self::LeftShift
-            | Self::RightShift
-            | Self::LogicalOr
-            | Self::LogicalAnd => true,
-            _ => false,
-        }
+                | Self::LessThan
+                | Self::LessThanOrEqual
+                | Self::GreaterThan
+                | Self::GreaterThanOrEqual
+                | Self::Plus
+                | Self::Minus
+                | Self::Asterisk
+                | Self::Divide
+                | Self::Modulo
+                | Self::BitwiseXor
+                | Self::BitwiseOr
+                | Self::BitwiseAnd
+                | Self::Exponentiation
+                | Self::LeftShift
+                | Self::RightShift
+                | Self::LogicalOr
+                | Self::LogicalAnd
+        )
     }
 
     pub fn is_literal(&self) -> bool {
-        match self {
-            Self::CharLiteral
-            | Self::StringLiteral
-            | Self::FloatLiteral
-            | Self::IntegerLiteral(_) => true,
-            _ => false,
-        }
+        matches!(
+            self,
+            Self::CharLiteral | Self::StringLiteral | Self::FloatLiteral | Self::IntegerLiteral(_)
+        )
     }
 
     fn grouping_symbol_from(c: char) -> LeekTokenKind {
@@ -418,7 +412,7 @@ impl Display for LexerError {
             write!(f, " ")?;
         }
 
-        writeln!(f, "{}", "here")?;
+        writeln!(f, "here")?;
         writeln!(f)?;
 
         match &self.kind {
@@ -774,7 +768,7 @@ impl LeekLexer {
 
         // If we are in float mode, check if there were chars after the `.`
         if let NumberLexingState::Float = state {
-            if text.ends_with(".") {
+            if text.ends_with('.') {
                 return Err(create_error!(LexerErrorKind::UnexpectedEndOfFloatLiteral));
             }
         }

@@ -144,7 +144,7 @@ impl Display for ParserError {
             }
         }
 
-        highlight_span(f, &self.source_file, self.span)?;
+        highlight_span(f, &self.source_file, self.span.clone())?;
 
         Ok(())
     }
@@ -380,35 +380,31 @@ impl LeekParser {
             // StaticVariableDeclaration
             LeekTokenKind::Keyword(KeywordKind::Hold) => self.parse_static_variable_declaration(),
             // Unexpected keyword
-            LeekTokenKind::Keyword(kw) => {
-                return Err(self.create_error_with_span(
-                    ParserErrorKind::UnexpectedKeyword {
-                        expected: vec![
-                            KeywordKind::Fn,
-                            KeywordKind::Struct,
-                            KeywordKind::Perm,
-                            KeywordKind::Hold,
-                        ],
-                        found: kw,
-                    },
-                    peeked_token.span.clone(),
-                ));
-            }
+            LeekTokenKind::Keyword(kw) => Err(self.create_error_with_span(
+                ParserErrorKind::UnexpectedKeyword {
+                    expected: vec![
+                        KeywordKind::Fn,
+                        KeywordKind::Struct,
+                        KeywordKind::Perm,
+                        KeywordKind::Hold,
+                    ],
+                    found: kw,
+                },
+                peeked_token.span.clone(),
+            )),
             // Any other token
-            _ => {
-                return Err(self.create_error_with_span(
-                    ParserErrorKind::UnexpectedToken {
-                        expected: vec![
-                            LeekTokenKind::Keyword(KeywordKind::Fn),
-                            LeekTokenKind::Keyword(KeywordKind::Struct),
-                            LeekTokenKind::Keyword(KeywordKind::Perm),
-                            LeekTokenKind::Keyword(KeywordKind::Hold),
-                        ],
-                        found: peeked_token.kind,
-                    },
-                    peeked_token.span.clone(),
-                ));
-            }
+            _ => Err(self.create_error_with_span(
+                ParserErrorKind::UnexpectedToken {
+                    expected: vec![
+                        LeekTokenKind::Keyword(KeywordKind::Fn),
+                        LeekTokenKind::Keyword(KeywordKind::Struct),
+                        LeekTokenKind::Keyword(KeywordKind::Perm),
+                        LeekTokenKind::Keyword(KeywordKind::Hold),
+                    ],
+                    found: peeked_token.kind,
+                },
+                peeked_token.span.clone(),
+            )),
         }
     }
 
@@ -453,11 +449,10 @@ impl LeekParser {
     /// FunctionReturnType ::
     ///     `->` Type
     fn parse_return_type(&mut self) -> Result<ParseTreeNode, LeekCompilerError> {
-        let mut children = Vec::new();
-
-        children.push(terminal!(self.next_expect_is(LeekTokenKind::Arrow)?));
-
-        children.push(self.parse_type()?);
+        let children = vec![
+            terminal!(self.next_expect_is(LeekTokenKind::Arrow)?),
+            self.parse_type()?,
+        ];
 
         Ok(ParseTreeNode::NonTerminal(ParseTreeNodeNonTerminal {
             kind: ParseTreeNonTerminalKind::FunctionReturnType,
@@ -1146,9 +1141,7 @@ impl LeekParser {
     /// Type ::
     ///     QualifiedIdentifier
     fn parse_type(&mut self) -> Result<ParseTreeNode, LeekCompilerError> {
-        let mut children = Vec::new();
-
-        children.push(self.parse_qualified_identifier()?);
+        let children = vec![self.parse_qualified_identifier()?];
 
         Ok(ParseTreeNode::NonTerminal(ParseTreeNodeNonTerminal {
             kind: ParseTreeNonTerminalKind::Type,

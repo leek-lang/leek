@@ -145,7 +145,7 @@ impl FromNode for Type {
 impl FromNode for QualifiedIdentifier {
     fn from_node(node: &ParseTreeNodeNonTerminal) -> Self {
         assert!(
-            node.children.len() >= 1,
+            !node.children.is_empty(),
             "Qualified identifier node has no children"
         );
 
@@ -237,7 +237,7 @@ impl From<LeekToken> for IntegerKind {
 
         // TODO: add support for type specifiers like `u32` and `i32`
 
-        let integer_kind = match integer {
+        match integer {
             IntegerLiteralKind::Decimal => {
                 let Ok(value) = value.text.parse::<i32>() else {
                     panic!("Could not parse integer literal from token text")
@@ -248,9 +248,7 @@ impl From<LeekToken> for IntegerKind {
             IntegerLiteralKind::Hexadecimal => todo!(),
             IntegerLiteralKind::Binary => todo!(),
             IntegerLiteralKind::Octal => todo!(),
-        };
-
-        integer_kind
+        }
     }
 }
 
@@ -309,7 +307,7 @@ impl FromNode for FunctionCallExpression {
         assert!(node.children.len() >= 3);
         assert!(node.children.len() <= 4);
 
-        let identifier = QualifiedIdentifier::from_node(&node.children[0].non_terminal());
+        let identifier = QualifiedIdentifier::from_node(node.children[0].non_terminal());
 
         assert_eq!(
             node.children[1].terminal_token().kind,
@@ -327,7 +325,7 @@ impl FromNode for FunctionCallExpression {
                     LeekTokenKind::CloseParen
                 );
 
-                assert_nt_kind(&non_terminal, ParseTreeNonTerminalKind::FunctionArguments);
+                assert_nt_kind(non_terminal, ParseTreeNonTerminalKind::FunctionArguments);
 
                 let mut arguments = vec![];
 
@@ -337,7 +335,7 @@ impl FromNode for FunctionCallExpression {
                         continue;
                     }
 
-                    let argument = Expression::from_node(&argument.non_terminal());
+                    let argument = Expression::from_node(argument.non_terminal());
 
                     arguments.push(argument)
                 }
@@ -423,7 +421,7 @@ impl FromNode for FunctionDefinition {
 
         // Make sure that the param node is correct
         assert_nt_kind(
-            &parameters.non_terminal(),
+            parameters.non_terminal(),
             ParseTreeNonTerminalKind::FunctionParameters,
         );
 
@@ -470,7 +468,7 @@ impl FromNode for FunctionDefinition {
                 let function_return_type = function_return_type_node.non_terminal();
 
                 assert_nt_kind(
-                    &function_return_type,
+                    function_return_type,
                     ParseTreeNonTerminalKind::FunctionReturnType,
                 );
 
@@ -631,10 +629,10 @@ impl FromNode for Statement {
             ParseTreeNode::NonTerminal(non_terminal) => match non_terminal.kind {
                 ParseTreeNonTerminalKind::QualifiedIdentifier => {
                     let identifier =
-                        QualifiedIdentifier::from_node(&node.children[0].non_terminal());
+                        QualifiedIdentifier::from_node(node.children[0].non_terminal());
                     let operator =
-                        AssignmentOperator::from_terminal(&node.children[1].terminal_token());
-                    let value = Expression::from_node(&node.children[2].non_terminal());
+                        AssignmentOperator::from_terminal(node.children[1].terminal_token());
+                    let value = Expression::from_node(node.children[2].non_terminal());
 
                     Statement::VariableAssignment(VariableAssignment {
                         identifier,

@@ -6,7 +6,7 @@ pub struct SourceFile {
     pub content: String,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Position {
     pub row: u32,
     pub col: u32,
@@ -28,6 +28,12 @@ impl Position {
     }
 }
 
+impl Default for Position {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T> From<T> for Position
 where
     T: Into<PathBuf> + Sized,
@@ -43,7 +49,7 @@ impl Display for Position {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Span {
     start: Position,
     end: Position,

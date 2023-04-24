@@ -1,5 +1,5 @@
 use indoc::indoc;
-use std::{path::PathBuf, process::Command};
+use std::{path::Path, process::Command};
 
 use crate::{backend::LeekCompilerConfig, frontend::ast::LeekAst};
 
@@ -40,7 +40,7 @@ impl CodeGenerator for CodeGeneratorX86LinuxGNU {
         })
     }
 
-    fn create_assembler_command(&self, input_file: &PathBuf, output_file: &PathBuf) -> Command {
+    fn create_assembler_command(&self, input_file: &Path, output_file: &Path) -> Command {
         let mut cmd = Command::new("nasm");
 
         cmd.args([
@@ -58,7 +58,7 @@ impl CodeGenerator for CodeGeneratorX86LinuxGNU {
         cmd
     }
 
-    fn create_linker_command(&self, input_file: &PathBuf, output_file: &PathBuf) -> Command {
+    fn create_linker_command(&self, input_file: &Path, output_file: &Path) -> Command {
         let mut cmd = Command::new("gcc");
 
         cmd.args([

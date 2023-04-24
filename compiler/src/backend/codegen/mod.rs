@@ -1,4 +1,4 @@
-use std::{path::PathBuf, process::Command, str::FromStr};
+use std::{path::Path, process::Command, str::FromStr};
 
 use crate::frontend::ast::LeekAst;
 
@@ -11,8 +11,8 @@ pub mod x86_linux_gnu;
 
 pub trait CodeGenerator {
     fn generate_assembly(&self, ast: LeekAst, compiler_options: &LeekCompilerConfig) -> String;
-    fn create_assembler_command(&self, input_file: &PathBuf, output_file: &PathBuf) -> Command;
-    fn create_linker_command(&self, input_file: &PathBuf, output_file: &PathBuf) -> Command;
+    fn create_assembler_command(&self, input_file: &Path, output_file: &Path) -> Command;
+    fn create_linker_command(&self, input_file: &Path, output_file: &Path) -> Command;
 }
 
 #[allow(non_camel_case_types)]

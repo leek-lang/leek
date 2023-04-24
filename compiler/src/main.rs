@@ -27,19 +27,19 @@ struct LeekCompilerArgs {
     opt_level: OptimizationLevel,
 }
 
-impl Into<LeekCompilerConfig> for LeekCompilerArgs {
-    fn into(self) -> LeekCompilerConfig {
+impl From<LeekCompilerArgs> for LeekCompilerConfig {
+    fn from(args: LeekCompilerArgs) -> Self {
         LeekCompilerConfig {
-            opt_level: self.opt_level,
-            build_mode: if self.release {
+            opt_level: args.opt_level,
+            build_mode: if args.release {
                 BuildMode::Release
             } else {
                 BuildMode::Debug
             },
-            emit_mode: self.emit,
-            input_files: self.input_files,
-            output_name: self.output,
-            verbose: self.verbose,
+            emit_mode: args.emit,
+            input_files: args.input_files,
+            output_name: args.output,
+            verbose: args.verbose,
         }
     }
 }
