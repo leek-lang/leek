@@ -16,6 +16,8 @@ use super::{
     VariableAssignment,
 };
 
+// TODO: Add spans for ast nodes
+
 #[derive(Debug)]
 pub struct AstBuildError {
     pub kind: AstBuildErrorKind,
