@@ -6,7 +6,7 @@ pub struct SourceFile {
     pub content: String,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Position {
     pub row: u32,
     pub col: u32,
@@ -43,7 +43,7 @@ impl Display for Position {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Span {
     start: Position,
     end: Position,

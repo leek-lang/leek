@@ -10,7 +10,13 @@ pub struct LeekAst {
     pub root: Program,
 }
 
-#[derive(Debug)]
+impl PartialEq for LeekAst {
+    fn eq(&self, other: &Self) -> bool {
+        self.root == other.root
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub struct Program {
     pub constant_variables: Vec<VariableDeclaration>,
     pub static_variables: Vec<VariableDeclaration>,
@@ -19,7 +25,7 @@ pub struct Program {
     pub enum_definitions: Vec<EnumDefinition>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Type {
     Primitive(PrimitiveKind),
     Identifier(QualifiedIdentifier),
@@ -49,7 +55,7 @@ impl QualifiedIdentifier {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct VariableDeclaration {
     pub kind: VariableDeclarationKind,
     pub identifier: String,
@@ -57,21 +63,21 @@ pub struct VariableDeclaration {
     pub value: Expression,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum VariableDeclarationKind {
     Constant,
     Static,
     Local,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct VariableAssignment {
     pub identifier: QualifiedIdentifier,
     pub operator: AssignmentOperator,
     pub value: Expression,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Expression {
     Atom(Atom),
     UnaryExpression(UnaryExpression),
@@ -82,20 +88,20 @@ pub enum Expression {
     StructMethodCall(StructMethodCall),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Atom {
     QualifiedIdentifier(QualifiedIdentifier),
     Literal(Literal),
     ParenthesizedExpression(Box<Expression>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Literal {
     pub kind: LiteralKind,
     pub span: Span,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum LiteralKind {
     Integer(IntegerKind),
     Float(FloatKind),
@@ -103,7 +109,7 @@ pub enum LiteralKind {
     String(String),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum IntegerKind {
     I8(i8),
     U8(u8),
@@ -115,25 +121,25 @@ pub enum IntegerKind {
     U64(u64),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum FloatKind {
     F32(f32),
     F64(f64),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct UnaryExpression {
     pub unary_operator: UnaryOperator,
     pub expression: Box<Expression>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct BinaryExpression {
     pub binary_operator: BinaryOperator,
     pub expression: Box<Expression>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct FunctionDefinition {
     pub name: String,
     pub struct_identifier: Option<String>,
@@ -142,18 +148,18 @@ pub struct FunctionDefinition {
     pub body: Block,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct FunctionParameter {
     pub identifier: String,
     pub ty: Type,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Block {
     pub statements: Vec<Statement>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Statement {
     Block(Block),
     Yeet(Expression),
@@ -162,49 +168,49 @@ pub enum Statement {
     FunctionCall(FunctionCallExpression),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct FunctionCallExpression {
     pub identifier: QualifiedIdentifier,
     pub arguments: Vec<Expression>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct StructDefinition {
     pub name: String,
     pub fields: Vec<StructField>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct StructField {
     pub identifier: String,
     pub ty: Type,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct EnumDefinition {
     pub name: String,
     pub variants: Vec<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct StructInitialization {
     pub identifier: QualifiedIdentifier,
     pub arguments: Vec<StructInitializationField>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct StructInitializationField {
     pub identifier: String,
     pub value: Expression,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct StructFieldAccess {
     pub identifier: QualifiedIdentifier,
     pub field: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct StructMethodCall {
     pub identifier: QualifiedIdentifier,
     pub method: String,

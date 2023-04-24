@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum PrimitiveKind {
     Void,
     I8,
@@ -13,7 +13,7 @@ pub enum PrimitiveKind {
     F64,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum AssignmentOperator {
     Equals,
     PlusEquals,
@@ -33,7 +33,7 @@ pub enum AssignmentOperator {
     LogicalAndEquals,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum BinaryOperator {
     DoubleEquals,
     LessThan,
@@ -55,7 +55,7 @@ pub enum BinaryOperator {
     LogicalAnd,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum UnaryOperator {
     BitwiseNot,
     LogicalNot,
