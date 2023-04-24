@@ -520,7 +520,7 @@ impl LeekParser {
                     self.lexer.next()?;
                 }
                 // Allow recursive blocks
-                LeekTokenKind::OpenBracket => children.push(self.parse_block()?),
+                LeekTokenKind::OpenCurlyBracket => children.push(self.parse_block()?),
                 // Break the loop if a closing bracket is found
                 LeekTokenKind::CloseCurlyBracket => break,
 

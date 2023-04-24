@@ -155,6 +155,7 @@ pub struct Block {
 
 #[derive(Debug)]
 pub enum Statement {
+    Block(Block),
     Yeet(Expression),
     VariableDeclaration(VariableDeclaration),
     VariableAssignment(VariableAssignment),

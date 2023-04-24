@@ -103,6 +103,17 @@ fn assert_nt_kind(
     Ok(())
 }
 
+fn assert_nt_kind_of(
+    node: &ParseTreeNodeNonTerminal,
+    kinds: Vec<ParseTreeNonTerminalKind>,
+) -> Result<(), AstBuildError> {
+    if !kinds.contains(&node.kind) {
+        return Err(node.to_owned().into());
+    }
+
+    Ok(())
+}
+
 impl From<ParseTreeNode> for AstBuildError {
     fn from(node: ParseTreeNode) -> Self {
         AstBuildError {
@@ -612,8 +623,22 @@ impl FromTerminal for AssignmentOperator {
 
 impl FromNode for Statement {
     fn from_node(node: &ParseTreeNodeNonTerminal) -> Result<Self, AstBuildError> {
-        assert_nt_kind(node, ParseTreeNonTerminalKind::Statement)?;
+        assert_nt_kind_of(
+            node,
+            vec![
+                ParseTreeNonTerminalKind::Statement,
+                ParseTreeNonTerminalKind::Block,
+            ],
+        )?;
 
+        // Recursive block
+        if let ParseTreeNonTerminalKind::Block = node.kind {
+            return Ok(Statement::Block(Block::from_node(node)?));
+        }
+
+        // TODO: Refactor this to match more non-terminal kinds
+
+        // Other kind of statement
         match &node.children[0] {
             ParseTreeNode::Terminal(terminal) => {
                 let LeekTokenKind::Keyword(keyword) = terminal.kind else {
