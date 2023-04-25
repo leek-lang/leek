@@ -1,5 +1,7 @@
 # Leek Compiler
 
+<img width="3104" alt="Leek Compiler" src="https://user-images.githubusercontent.com/49880655/234275312-0e618682-0cab-4435-b15b-bb6ed57de6ba.png">
+
 The Leek Bootstrap Compiler is written in Rust, and is divided into multiple modules. The entire compilation pipeline is described as follows:
 
 ## Frontend
