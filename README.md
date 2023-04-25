@@ -1,5 +1,8 @@
 # Leek
 
+![GitHub](https://img.shields.io/github/license/leek-lang/leek?color=blue)
+[![Build Status](https://img.shields.io/endpoint.svg?url=https%3A%2F%2Factions-badge.atrox.dev%2Fleek-lang%2Fleek%2Fbadge%3Fref%3Dmaster&style=flat)](https://actions-badge.atrox.dev/leek-lang/leek/goto?ref=master)
+
 <p align="center">
     <img src="https://user-images.githubusercontent.com/49880655/234137537-847f2b36-6aad-43d8-9c74-69c5b7231d3d.svg" width="250">
 </p>
