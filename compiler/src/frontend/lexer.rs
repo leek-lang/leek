@@ -1,4 +1,5 @@
 use std::{
+    cell::UnsafeCell,
     collections::VecDeque,
     fmt::{Debug, Display},
 };
@@ -453,38 +454,48 @@ pub trait Lexer {
 ///
 /// This lexer implementation uses a "lazy" iterator approach such
 /// that characters are not read from the input stream until a token is requested.
+///
+/// The lexer uses interior mutability to allow for peeking ahead in the token stream.
+/// Since peeking ahead modifies the state of the character reader, this would otherwise
+/// not be possible, unless the peek function took a mutable reference to the lexer.
+///
+/// UnsafeCell is used to allow for an optimization of the peek function that stores
+/// the peeked tokens in a VecDeque. This is done to avoid having to re-lex the same
+/// tokens multiple times.
 pub struct LeekLexer {
-    character_reader: Box<dyn CharacterReader>,
-    peek_forward: VecDeque<LeekToken>,
+    character_reader: UnsafeCell<Box<dyn CharacterReader>>,
+    peek_forward: UnsafeCell<VecDeque<LeekToken>>,
 }
 
 impl LeekLexer {
     pub fn new(character_reader: impl CharacterReader + 'static) -> Self {
         LeekLexer {
-            character_reader: Box::new(character_reader),
-            peek_forward: VecDeque::new(),
+            character_reader: UnsafeCell::new(Box::new(character_reader)),
+            peek_forward: UnsafeCell::new(VecDeque::new()),
         }
     }
 
     /// Read a literal that is wrapped in the provided character
     /// The wrapper character can be escaped using the backslash character `\`
     fn read_wrapped_escapable(
-        &mut self,
+        &self,
         wrapper: char,
         kind: LeekTokenKind,
     ) -> Result<LeekToken, LexerError> {
+        let character_reader = unsafe { &mut *self.character_reader.get() };
+
         let mut text = String::new();
-        let start = self.character_reader.get_position().clone();
+        let start = character_reader.get_position().clone();
 
         macro_rules! get_next_char {
             () => {
-                if let Some(c) = self.character_reader.next() {
+                if let Some(c) = character_reader.next() {
                     c
                 } else {
                     return Err(LexerError {
                         kind: LexerErrorKind::UnclosedWrappedLiteral(kind),
-                        source_file: self.character_reader.get_source_file().to_owned(),
-                        position: self.character_reader.get_position().clone(),
+                        source_file: character_reader.get_source_file().to_owned(),
+                        position: character_reader.get_position().clone(),
                     });
                 }
             };
@@ -492,13 +503,13 @@ impl LeekLexer {
 
         macro_rules! peek_nth_char {
             ($n:expr) => {
-                if let Some(c) = self.character_reader.peek_nth($n) {
+                if let Some(c) = character_reader.peek_nth($n) {
                     c
                 } else {
                     return Err(LexerError {
                         kind: LexerErrorKind::UnclosedWrappedLiteral(kind),
-                        source_file: self.character_reader.get_source_file().to_owned(),
-                        position: self.character_reader.get_position().clone(),
+                        source_file: character_reader.get_source_file().to_owned(),
+                        position: character_reader.get_position().clone(),
                     });
                 }
             };
@@ -534,7 +545,7 @@ impl LeekLexer {
         // Second Quote
         expect_wrapper!();
 
-        let end = self.character_reader.get_position().clone();
+        let end = character_reader.get_position().clone();
 
         Ok(LeekToken {
             kind,
@@ -544,7 +555,7 @@ impl LeekLexer {
     }
 
     /// Reads a generic number literal into either an integer or double
-    fn read_number_literal(&mut self) -> Result<LeekToken, LexerError> {
+    fn read_number_literal(&self) -> Result<LeekToken, LexerError> {
         /*
          * Integer Cases:
          *
@@ -569,10 +580,12 @@ impl LeekLexer {
 
         // TODO: Lex negative numbers
 
+        let character_reader = unsafe { &mut *self.character_reader.get() };
+
         // Look ahead to match different literal types
         return 'number: {
-            if *self.character_reader.peek().unwrap() == '0' {
-                let Some(c) = self.character_reader.peek_nth(1) else {
+            if *character_reader.peek().unwrap() == '0' {
+                let Some(c) = character_reader.peek_nth(1) else {
                     // Only found `0` and nothing else so parse as int literal `0`
                     break 'number self.read_dec_int_or_float_literal();
                 };
@@ -605,31 +618,33 @@ impl LeekLexer {
     }
 
     fn read_based_int_literal(
-        &mut self,
+        &self,
         literal_kind: IntegerLiteralKind,
         is_in_base: fn(char) -> bool,
     ) -> Result<LeekToken, LexerError> {
+        let character_reader = unsafe { &mut *self.character_reader.get() };
+
         macro_rules! create_error {
             ($kind:expr) => {
                 LexerError {
                     kind: $kind,
-                    source_file: self.character_reader.get_source_file().to_owned(),
-                    position: self.character_reader.get_position().clone(),
+                    source_file: character_reader.get_source_file().to_owned(),
+                    position: character_reader.get_position().clone(),
                 }
             };
         }
 
         macro_rules! get_next_char {
             () => {
-                self.character_reader.next().ok_or_else(|| LexerError {
+                character_reader.next().ok_or_else(|| LexerError {
                     kind: LexerErrorKind::UnexpectedEndOfIntegerLiteral(literal_kind),
-                    source_file: self.character_reader.get_source_file().to_owned(),
-                    position: self.character_reader.get_position().clone(),
+                    source_file: character_reader.get_source_file().to_owned(),
+                    position: character_reader.get_position().clone(),
                 })?
             };
         }
 
-        let start = self.character_reader.get_position().clone();
+        let start = character_reader.get_position().clone();
 
         let mut text = String::new();
 
@@ -638,12 +653,12 @@ impl LeekLexer {
         // special boundary
         text.push(get_next_char!());
 
-        while self.character_reader.has_next() {
-            let peeked_char = *self.character_reader.peek().unwrap();
+        while character_reader.has_next() {
+            let peeked_char = *character_reader.peek().unwrap();
 
             if peeked_char == '_' {
                 // Ignore underscores
-                self.character_reader.next().unwrap();
+                character_reader.next().unwrap();
                 continue;
             } else if !peeked_char.is_ascii_alphanumeric() {
                 // Stop parsing where we are if we encounter any symbols
@@ -667,7 +682,7 @@ impl LeekLexer {
             ));
         }
 
-        let end = self.character_reader.get_position().clone();
+        let end = character_reader.get_position().clone();
 
         Ok(LeekToken {
             kind: LeekTokenKind::IntegerLiteral(literal_kind),
@@ -676,7 +691,7 @@ impl LeekLexer {
         })
     }
 
-    fn read_dec_int_or_float_literal(&mut self) -> Result<LeekToken, LexerError> {
+    fn read_dec_int_or_float_literal(&self) -> Result<LeekToken, LexerError> {
         enum NumberLexingState {
             Integer,
             Float,
@@ -684,19 +699,21 @@ impl LeekLexer {
 
         let mut state = NumberLexingState::Integer;
 
+        let character_reader = unsafe { &mut *self.character_reader.get() };
+
         macro_rules! create_error {
             ($kind:expr) => {
                 LexerError {
                     kind: $kind,
-                    source_file: self.character_reader.get_source_file().to_owned(),
-                    position: self.character_reader.get_position().clone(),
+                    source_file: character_reader.get_source_file().to_owned(),
+                    position: character_reader.get_position().clone(),
                 }
             };
         }
 
         macro_rules! get_next_char {
             () => {
-                self.character_reader.next().ok_or_else(|| LexerError {
+                character_reader.next().ok_or_else(|| LexerError {
                     kind: match state {
                         NumberLexingState::Integer => {
                             LexerErrorKind::UnexpectedEndOfIntegerLiteral(
@@ -705,26 +722,26 @@ impl LeekLexer {
                         }
                         NumberLexingState::Float => LexerErrorKind::UnexpectedEndOfFloatLiteral,
                     },
-                    source_file: self.character_reader.get_source_file().to_owned(),
-                    position: self.character_reader.get_position().clone(),
+                    source_file: character_reader.get_source_file().to_owned(),
+                    position: character_reader.get_position().clone(),
                 })?
             };
         }
 
-        let start = self.character_reader.get_position().clone();
+        let start = character_reader.get_position().clone();
 
         let mut text = String::new();
 
         // first char
         text.push(get_next_char!());
 
-        while self.character_reader.has_next() {
-            let peeked_char = *self.character_reader.peek().unwrap();
+        while character_reader.has_next() {
+            let peeked_char = *character_reader.peek().unwrap();
 
             match peeked_char {
                 // Ignore underscores
                 '_' => {
-                    self.character_reader.next().unwrap();
+                    character_reader.next().unwrap();
                     continue;
                 }
                 // Stop lexing where we are if we encounter any symbols
@@ -773,7 +790,7 @@ impl LeekLexer {
             }
         }
 
-        let end = self.character_reader.get_position().clone();
+        let end = character_reader.get_position().clone();
 
         Ok(LeekToken {
             kind: match state {
@@ -788,40 +805,46 @@ impl LeekLexer {
     }
 
     /// Advance the lexer while the next character matches the predicate, and return the resulting string
-    fn read_while(&mut self, predicate: fn(char) -> bool) -> String {
+    fn read_while(&self, predicate: fn(char) -> bool) -> String {
+        let character_reader = unsafe { &mut *self.character_reader.get() };
+
         let mut res = String::new();
 
-        while self.character_reader.has_next() {
-            let c = self.character_reader.peek().unwrap();
+        while character_reader.has_next() {
+            let c = character_reader.peek().unwrap();
 
             if !predicate(*c) {
                 return res;
             }
 
-            res.push(self.character_reader.next().unwrap());
+            res.push(character_reader.next().unwrap());
         }
 
         res
     }
 
     /// Advance the lexer while the next character matches the predicate, and discard the matched chars
-    fn ignore_while(&mut self, predicate: fn(char) -> bool) {
-        while self.character_reader.has_next() {
-            let c = self.character_reader.peek().unwrap();
+    fn ignore_while(&self, predicate: fn(char) -> bool) {
+        let character_reader = unsafe { &mut *self.character_reader.get() };
+
+        while character_reader.has_next() {
+            let c = character_reader.peek().unwrap();
 
             if !predicate(*c) {
                 return;
             }
 
-            self.character_reader.next();
+            character_reader.next();
         }
     }
 
     /// Requires character to be available
-    fn read_single(&mut self, kind: LeekTokenKind) -> LeekToken {
-        let start = self.character_reader.get_position().clone();
-        let c = self.character_reader.next().unwrap();
-        let end = self.character_reader.get_position().clone();
+    fn read_single(&self, kind: LeekTokenKind) -> LeekToken {
+        let character_reader = unsafe { &mut *self.character_reader.get() };
+
+        let start = character_reader.get_position().clone();
+        let c = character_reader.next().unwrap();
+        let end = character_reader.get_position().clone();
 
         LeekToken {
             kind,
@@ -831,11 +854,13 @@ impl LeekLexer {
     }
 
     /// Peeks the character reader several chars forward to look for a char sequence
-    fn lookahead_has(&mut self, string: &str, n: usize) -> bool {
+    fn lookahead_has(&self, string: &str, n: usize) -> bool {
+        let character_reader = unsafe { &mut *self.character_reader.get() };
+
         let chars = string.chars();
 
         for (i, c) in chars.enumerate() {
-            let Some(peeked) = self.character_reader.peek_nth(n + i) else {
+            let Some(peeked) = character_reader.peek_nth(n + i) else {
                 return false;
             };
 
@@ -850,16 +875,18 @@ impl LeekLexer {
     /// Reads a fixed number of chars from the character reader and returns the resulting token
     ///
     /// Requires that the character reader be checked in advance to contain the correct sequence
-    fn read_multi(&mut self, string: &str, kind: LeekTokenKind) -> LeekToken {
+    fn read_multi(&self, string: &str, kind: LeekTokenKind) -> LeekToken {
+        let character_reader = unsafe { &mut *self.character_reader.get() };
+
         let mut text = String::new();
-        let start = self.character_reader.get_position().clone();
+        let start = character_reader.get_position().clone();
 
         for expected_char in string.chars() {
-            if !self.character_reader.has_next() {
+            if !character_reader.has_next() {
                 unreachable!("Not enough chars in character_reader (should be checked in advance)")
             }
 
-            let c = self.character_reader.peek().unwrap();
+            let c = character_reader.peek().unwrap();
 
             if *c != expected_char {
                 unreachable!(
@@ -867,10 +894,10 @@ impl LeekLexer {
                 )
             }
 
-            text.push(self.character_reader.next().unwrap());
+            text.push(character_reader.next().unwrap());
         }
 
-        let end = self.character_reader.get_position().clone();
+        let end = character_reader.get_position().clone();
 
         LeekToken {
             kind,
@@ -880,7 +907,7 @@ impl LeekLexer {
     }
 
     /// Looks ahead to see if there is an `=` following the given prefix
-    fn lookahead_has_equals(&mut self, prefix: impl Into<String>, n: usize) -> bool {
+    fn lookahead_has_equals(&self, prefix: impl Into<String>, n: usize) -> bool {
         let mut c: String = prefix.into();
         c.push('=');
 
@@ -890,7 +917,7 @@ impl LeekLexer {
     /// Reads a fixed number of chars with an `=` suffixed to the given prefix from the character reader and returns the resulting token
     ///
     /// Requires that the character reader be checked in advance to contain the correct sequence
-    fn read_multi_equals(&mut self, prefix: impl Into<String>, kind: LeekTokenKind) -> LeekToken {
+    fn read_multi_equals(&self, prefix: impl Into<String>, kind: LeekTokenKind) -> LeekToken {
         let mut c: String = prefix.into();
         c.push('=');
 
@@ -898,7 +925,7 @@ impl LeekLexer {
     }
 
     fn read_single_operator(
-        &mut self,
+        &self,
         c: char,
         single: LeekTokenKind,
         equals: LeekTokenKind,
@@ -911,24 +938,26 @@ impl LeekLexer {
     }
 
     fn read_double_operator(
-        &mut self,
+        &self,
         c: char,
         normal: LeekTokenKind,
         equals: LeekTokenKind,
     ) -> LeekToken {
         if self.lookahead_has_equals(c, 1) {
-            self.read_multi_equals(&c.to_string().repeat(2), equals)
+            self.read_multi_equals(c.to_string().repeat(2), equals)
         } else {
             self.read_multi(&c.to_string().repeat(2), normal)
         }
     }
 
-    fn read_next_token(&mut self) -> Result<Option<LeekToken>, LexerError> {
-        while self.character_reader.has_next() {
-            let start = self.character_reader.get_position().clone();
+    fn read_next_token(&self) -> Result<Option<LeekToken>, LexerError> {
+        let character_reader = unsafe { &mut *self.character_reader.get() };
+
+        while character_reader.has_next() {
+            let start = character_reader.get_position().clone();
 
             // SAFETY: always checking if more characters are available before unwrapping
-            let first_char = *self.character_reader.peek().unwrap();
+            let first_char = *character_reader.peek().unwrap();
 
             let token = Ok(Some(match first_char {
                 // New lines are significant
@@ -941,7 +970,7 @@ impl LeekLexer {
                 }
 
                 // Chop Comments
-                '/' if self.character_reader.peek_nth(1).is_some_and(|c| *c == '/') => {
+                '/' if character_reader.peek_nth(1).is_some_and(|c| *c == '/') => {
                     self.ignore_while(|c| c != '\n');
                     continue;
                 }
@@ -956,7 +985,7 @@ impl LeekLexer {
                             Err(_) => LeekTokenKind::Identifier,
                         },
                         text: word,
-                        span: Span::new(start, self.character_reader.get_position().clone()),
+                        span: Span::new(start, character_reader.get_position().clone()),
                     }
                 }
 
@@ -971,23 +1000,23 @@ impl LeekLexer {
                 }
 
                 // Arrows (`->`)
-                '-' if self.character_reader.peek_nth(1).is_some_and(|c| *c == '>') => {
+                '-' if character_reader.peek_nth(1).is_some_and(|c| *c == '>') => {
                     self.read_multi("->", LeekTokenKind::Arrow)
                 }
 
                 // Bang Coalescing (`!.`)
-                '!' if self.character_reader.peek_nth(1).is_some_and(|c| *c == '.') => {
+                '!' if character_reader.peek_nth(1).is_some_and(|c| *c == '.') => {
                     self.read_multi("!.", LeekTokenKind::BangCoalescing)
                 }
 
                 // Double Colon (`::`)
-                ':' if self.character_reader.peek_nth(1).is_some_and(|c| *c == ':') => {
+                ':' if character_reader.peek_nth(1).is_some_and(|c| *c == ':') => {
                     self.read_multi("::", LeekTokenKind::DoubleColon)
                 }
 
                 // Double operators (must come first because of lookahead clash)
                 c @ ('*' | '&' | '|' | '>' | '<')
-                    if self.character_reader.peek_nth(1).is_some_and(|x| *x == c) =>
+                    if character_reader.peek_nth(1).is_some_and(|x| *x == c) =>
                 {
                     self.read_double_operator(
                         c,
@@ -1013,8 +1042,8 @@ impl LeekLexer {
                 c => {
                     return Err(LexerError {
                         kind: LexerErrorKind::UnexpectedChar(c),
-                        source_file: self.character_reader.get_source_file().clone(),
-                        position: self.character_reader.get_position().clone(),
+                        source_file: character_reader.get_source_file().clone(),
+                        position: character_reader.get_position().clone(),
                     })
                 }
             }));
@@ -1026,75 +1055,72 @@ impl LeekLexer {
         // then we will never return more tokens
         Ok(None)
     }
-}
 
-impl Lexer for LeekLexer {
-    fn next(&mut self) -> Result<Option<LeekToken>, LexerError> {
+    fn _next(&self) -> Result<Option<LeekToken>, LexerError> {
+        let peek_forward = unsafe { &mut *self.peek_forward.get() };
+
         // Check if more tokens have already been precomputed for us
-        if !self.peek_forward.is_empty() {
+        if !peek_forward.is_empty() {
             // Always returns `Some`
-            return Ok(self.peek_forward.pop_front());
+            return Ok(peek_forward.pop_front());
         }
 
         self.read_next_token()
     }
+}
+
+impl Lexer for LeekLexer {
+    fn next(&mut self) -> Result<Option<LeekToken>, LexerError> {
+        self._next()
+    }
 
     fn peek(&self) -> Result<Option<&LeekToken>, LexerError> {
+        let peek_forward = unsafe { &mut *self.peek_forward.get() };
+
         // Check if more tokens have already been precomputed for us
-        if !self.peek_forward.is_empty() {
+        if let Some(token) = peek_forward.front() {
             // Always returns `Some`
-            return Ok(self.peek_forward.front());
+            return Ok(Some(token));
         }
 
-        // SAFETY: Allows us to keep the peek interface appear immutable
-        // All raw pointer manipulation is done safely
-        unsafe {
-            let const_ptr = self as *const LeekLexer;
-            let mut_ptr = const_ptr as *mut LeekLexer;
-            let mut_lexer = &mut *mut_ptr;
+        let peek_forward = unsafe { &mut *self.peek_forward.get() };
 
-            // If there are more tokens
-            if let Some(token) = mut_lexer.next()? {
-                // Store the token for later usage
-                mut_lexer.peek_forward.push_back(token);
+        // If there are more tokens
+        if let Some(token) = self._next()? {
+            // Store the token for later usage
+            peek_forward.push_back(token);
 
-                // Return a reference to the token
-                Ok(self.peek_forward.front())
-            } else {
-                // Otherwise, return None since there are no tokens to peek
-                Ok(None)
-            }
+            // Return a reference to the token
+            Ok(peek_forward.front())
+        } else {
+            // Otherwise, return None since there are no tokens to peek
+            Ok(None)
         }
     }
 
     fn peek_nth(&self, n: usize) -> Result<Option<&LeekToken>, LexerError> {
+        let peek_forward = unsafe { &mut *self.peek_forward.get() };
+
         // Check if `n` tokens have already been precomputed for us
-        if self.peek_forward.len() > n {
+        if peek_forward.len() > n {
             // Always returns `Some`
-            return Ok(self.peek_forward.get(n));
+            let peek = peek_forward;
+            return Ok(peek.get(n));
         }
 
-        // SAFETY: Allows us to keep the peek interface appear immutable
-        // All raw pointer manipulation is done safely
-        unsafe {
-            let const_ptr = self as *const LeekLexer;
-            let mut_ptr = const_ptr as *mut LeekLexer;
-            let mut_lexer = &mut *mut_ptr;
-
-            // Otherwise, pre-compute the next `n` tokens from the amount we've already computed
-            for _ in self.peek_forward.len()..=n {
-                // Get the next token or return early if none more are found
-                let Some(token) = mut_lexer.read_next_token()? else {
+        // Otherwise, pre-compute the next `n` tokens from the amount we've already computed
+        for _ in peek_forward.len()..=n {
+            // Get the next token or return early if none more are found
+            let Some(token) = self.read_next_token()? else {
                     return Ok(None);
                 };
 
-                // Store the token for later usage
-                mut_lexer.peek_forward.push_back(token);
-            }
+            // Store the token for later usage
+            peek_forward.push_back(token);
         }
 
         // Always returns `Some` because we would not have completed the loop otherwise.
-        Ok(self.peek_forward.get(n))
+        Ok(peek_forward.get(n))
     }
 
     fn has_next(&self) -> Result<bool, LexerError> {
@@ -1102,11 +1128,15 @@ impl Lexer for LeekLexer {
     }
 
     fn get_position(&self) -> &Position {
-        self.character_reader.get_position()
+        let character_reader = unsafe { &*self.character_reader.get() };
+
+        character_reader.get_position()
     }
 
     fn get_source_file(&self) -> &SourceFile {
-        self.character_reader.get_source_file()
+        let character_reader = unsafe { &*self.character_reader.get() };
+
+        character_reader.get_source_file()
     }
 }
 
