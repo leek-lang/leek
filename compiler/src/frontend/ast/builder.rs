@@ -733,6 +733,50 @@ mod tests {
     }
 
     #[test]
+    fn should_parse_hello_world() {
+        const INPUT: &str = indoc! {r#"
+        fn main() {
+            println("Hello, world!")
+        }
+        "#};
+
+        let ast = parse_string(INPUT.to_owned()).unwrap_or_else(|e| panic!("{e}"));
+
+        let expected = LeekAst {
+            source_file: SourceFile {
+                path: None,
+                content: INPUT.to_owned(),
+            },
+            root: Program {
+                constant_variables: vec![],
+                static_variables: vec![],
+                function_definitions: vec![FunctionDefinition {
+                    name: "main".to_owned(),
+                    struct_identifier: None,
+                    parameters: vec![],
+                    return_type: Type::Primitive(PrimitiveKind::Void),
+                    body: Block {
+                        statements: vec![Statement::FunctionCall(FunctionCallExpression {
+                            identifier: QualifiedIdentifier::new(None, "println".to_owned()),
+                            arguments: vec![Expression::Atom(Atom::Literal(Literal {
+                                kind: LiteralKind::String("\"Hello, world!\"".to_owned()),
+                                span: Span::new(
+                                    Position { row: 1, col: 12 },
+                                    Position { row: 1, col: 27 },
+                                ),
+                            }))],
+                        })],
+                    },
+                }],
+                struct_definitions: vec![],
+                enum_definitions: vec![],
+            },
+        };
+
+        assert_ast_eq!(ast, expected);
+    }
+
+    #[test]
     fn should_parse_recursive_blocks() {
         const INPUT: &str = indoc! {r#"
         fn main() {
@@ -770,6 +814,151 @@ mod tests {
                                 }))],
                             })],
                         })],
+                    },
+                }],
+                struct_definitions: vec![],
+                enum_definitions: vec![],
+            },
+        };
+
+        assert_ast_eq!(ast, expected);
+    }
+
+    #[test]
+    fn should_parse_leak_statement() {
+        const INPUT: &str = indoc! {r#"
+        fn main() {
+            leak a = 100
+        }
+        "#};
+
+        let ast = parse_string(INPUT.to_owned()).unwrap_or_else(|e| panic!("{e}"));
+
+        let expected = LeekAst {
+            source_file: SourceFile {
+                path: None,
+                content: INPUT.to_owned(),
+            },
+            root: Program {
+                constant_variables: vec![],
+                static_variables: vec![],
+                function_definitions: vec![FunctionDefinition {
+                    name: "main".to_owned(),
+                    struct_identifier: None,
+                    parameters: vec![],
+                    return_type: Type::Primitive(PrimitiveKind::Void),
+                    body: Block {
+                        statements: vec![Statement::VariableDeclaration(VariableDeclaration {
+                            kind: VariableDeclarationKind::Local,
+                            identifier: "a".to_owned(),
+                            ty: None,
+                            value: Expression::Atom(Atom::Literal(Literal {
+                                kind: LiteralKind::Integer(IntegerKind::I32(100)),
+                                span: Span::new(
+                                    Position { row: 1, col: 13 },
+                                    Position { row: 1, col: 16 },
+                                ),
+                            })),
+                        })],
+                    },
+                }],
+                struct_definitions: vec![],
+                enum_definitions: vec![],
+            },
+        };
+
+        assert_ast_eq!(ast, expected);
+    }
+
+    #[test]
+    fn should_parse_assignment_statement() {
+        const INPUT: &str = indoc! {r#"
+        fn main() {
+            a += 420
+        }
+        "#};
+
+        let ast = parse_string(INPUT.to_owned()).unwrap_or_else(|e| panic!("{e}"));
+
+        let expected = LeekAst {
+            source_file: SourceFile {
+                path: None,
+                content: INPUT.to_owned(),
+            },
+            root: Program {
+                constant_variables: vec![],
+                static_variables: vec![],
+                function_definitions: vec![FunctionDefinition {
+                    name: "main".to_owned(),
+                    struct_identifier: None,
+                    parameters: vec![],
+                    return_type: Type::Primitive(PrimitiveKind::Void),
+                    body: Block {
+                        statements: vec![Statement::VariableAssignment(VariableAssignment {
+                            identifier: QualifiedIdentifier::new(None, "a".to_owned()),
+                            operator: AssignmentOperator::PlusEquals,
+                            value: Expression::Atom(Atom::Literal(Literal {
+                                kind: LiteralKind::Integer(IntegerKind::I32(420)),
+                                span: Span::new(
+                                    Position { row: 1, col: 9 },
+                                    Position { row: 1, col: 12 },
+                                ),
+                            })),
+                        })],
+                    },
+                }],
+                struct_definitions: vec![],
+                enum_definitions: vec![],
+            },
+        };
+
+        assert_ast_eq!(ast, expected);
+    }
+
+    #[test]
+    fn should_parse_function_definition() {
+        const INPUT: &str = indoc! {r#"
+        fn add(a: i32, b: i32) -> i32 {
+            yeet a + b
+        }
+        "#};
+
+        let ast = parse_string(INPUT.to_owned()).unwrap_or_else(|e| panic!("{e}"));
+
+        let expected = LeekAst {
+            source_file: SourceFile {
+                path: None,
+                content: INPUT.to_owned(),
+            },
+            root: Program {
+                constant_variables: vec![],
+                static_variables: vec![],
+                function_definitions: vec![FunctionDefinition {
+                    name: "add".to_owned(),
+                    struct_identifier: None,
+                    parameters: vec![
+                        FunctionParameter {
+                            identifier: "a".to_owned(),
+                            ty: Type::Primitive(PrimitiveKind::I32),
+                        },
+                        FunctionParameter {
+                            identifier: "b".to_owned(),
+                            ty: Type::Primitive(PrimitiveKind::I32),
+                        },
+                    ],
+                    return_type: Type::Primitive(PrimitiveKind::I32),
+                    body: Block {
+                        statements: vec![Statement::Yeet(Expression::BinaryExpression(
+                            BinaryExpression {
+                                binary_operator: BinaryOperator::Plus,
+                                lhs: Box::new(Expression::Atom(Atom::QualifiedIdentifier(
+                                    QualifiedIdentifier::new(None, "a".to_owned()),
+                                ))),
+                                rhs: Box::new(Expression::Atom(Atom::QualifiedIdentifier(
+                                    QualifiedIdentifier::new(None, "b".to_owned()),
+                                ))),
+                            },
+                        ))],
                     },
                 }],
                 struct_definitions: vec![],
