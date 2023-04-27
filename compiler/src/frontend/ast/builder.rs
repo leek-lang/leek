@@ -318,7 +318,10 @@ impl FromNode for Atom {
                     kind: LiteralKind::String(terminal.text.clone()),
                     span: terminal.span.clone(),
                 }),
-                LeekTokenKind::CharLiteral => todo!(),
+                LeekTokenKind::CharLiteral => Atom::Literal(Literal {
+                    kind: LiteralKind::Char(terminal.text.chars().collect::<Vec<_>>()[1]),
+                    span: terminal.span.clone(),
+                }),
                 LeekTokenKind::IntegerLiteral(_) => Atom::Literal(Literal {
                     kind: LiteralKind::Integer(IntegerKind::from(terminal.clone())),
                     span: terminal.span.clone(),
@@ -985,6 +988,52 @@ mod tests {
                                 ))),
                             },
                         ))],
+                    },
+                }],
+                struct_definitions: vec![],
+                enum_definitions: vec![],
+            },
+        };
+
+        assert_ast_eq!(ast, expected);
+    }
+
+    #[test]
+    fn should_parse_chars() {
+        const INPUT: &str = indoc! {r#"
+        fn main() {
+            leak a = 'b'
+        }
+        "#};
+
+        let ast = parse_string(INPUT.to_owned()).unwrap_or_else(|e| panic!("{e}"));
+
+        let expected = LeekAst {
+            source_file: SourceFile {
+                path: None,
+                content: INPUT.to_owned(),
+            },
+            root: Program {
+                constant_variables: vec![],
+                static_variables: vec![],
+                function_definitions: vec![FunctionDefinition {
+                    name: "main".to_owned(),
+                    struct_identifier: None,
+                    parameters: vec![],
+                    return_type: Type::Primitive(PrimitiveKind::Void),
+                    body: Block {
+                        statements: vec![Statement::VariableDeclaration(VariableDeclaration {
+                            kind: VariableDeclarationKind::Local,
+                            identifier: "a".to_owned(),
+                            ty: None,
+                            value: Expression::Atom(Atom::Literal(Literal {
+                                kind: LiteralKind::Char('b'),
+                                span: Span::new(
+                                    Position { row: 1, col: 13 },
+                                    Position { row: 1, col: 16 },
+                                ),
+                            })),
+                        })],
                     },
                 }],
                 struct_definitions: vec![],
