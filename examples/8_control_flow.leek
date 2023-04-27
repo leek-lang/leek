@@ -1,0 +1,10 @@
+fn main() {
+    leak a = 69
+    leak b = 420
+
+    if a > b {
+        println("a is greater")
+    } else {
+        println("b is greater")
+    }
+}
