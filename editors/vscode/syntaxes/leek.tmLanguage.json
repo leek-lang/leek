@@ -327,7 +327,7 @@
 			"patterns": [
 				{
 					"name": "meta.control.leek",
-					"match": "\\b(if|else|while|for|switch)\\b(?=.*?(?:\\{|$))",
+					"match": "\\b(if|else|while|for|switch|unless)\\b(?=.*?(?:\\{|$))",
 					"captures": {
 						"1": {
 							"name": "keyword.control.block.leek"
