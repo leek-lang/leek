@@ -55,7 +55,7 @@ impl ParseTreeNode {
         if let ParseTreeNode::Terminal(token) = self {
             token
         } else {
-            panic!("Node is not terminal type")
+            panic!("Expected node to be terminal token")
         }
     }
 
@@ -63,7 +63,7 @@ impl ParseTreeNode {
         if let ParseTreeNode::NonTerminal(non_terminal) = self {
             non_terminal
         } else {
-            panic!("Node is not non-terminal type")
+            panic!("Expected node to be non-terminal")
         }
     }
 }

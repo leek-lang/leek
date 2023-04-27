@@ -386,7 +386,7 @@ impl FromNode for BinaryExpression {
     fn from_node(node: &ParseTreeNodeNonTerminal) -> Self {
         assert_nt_kind(node, ParseTreeNonTerminalKind::BinaryExpression);
 
-        assert_eq!(node.children.len(), 3);
+        assert_eq!(node.children.len(), 3, "Binary expression must have 3 children");
 
         let left = Expression::from_node(node.children[0].non_terminal());
         let operator = BinaryOperator::from_terminal(node.children[1].terminal_token());
@@ -441,7 +441,7 @@ impl FromNode for FunctionDefinition {
                 Some(&node.children[3]),
                 &node.children[4],
             ),
-            _ => unreachable!(),
+            _ => unreachable!("Invalid number of children in function definition"),
         };
 
         /* Build the function identifier and struct identifier (if any) */
@@ -517,7 +517,8 @@ impl FromNode for FunctionDefinition {
 
                 assert_eq!(
                     function_return_type.children[0].terminal_token().kind,
-                    LeekTokenKind::Arrow
+                    LeekTokenKind::Arrow,
+                    "Expected first token of return type to be arrow"
                 );
 
                 let type_node = &function_return_type.children[1].non_terminal();
