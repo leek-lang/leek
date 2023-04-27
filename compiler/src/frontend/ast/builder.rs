@@ -178,8 +178,61 @@ impl FromNode for QualifiedIdentifier {
 }
 
 impl FromNode for VariableDeclaration {
-    fn from_node(_node: &ParseTreeNodeNonTerminal) -> Self {
-        todo!()
+    fn from_node(node: &ParseTreeNodeNonTerminal) -> Self {
+        assert_nt_kind_of(
+            node,
+            &[
+                ParseTreeNonTerminalKind::LocalVariableDeclaration,
+                ParseTreeNonTerminalKind::ConstantVariableDeclaration,
+                ParseTreeNonTerminalKind::StaticVariableDeclaration,
+            ],
+        );
+
+        let kind = match node.kind {
+            ParseTreeNonTerminalKind::LocalVariableDeclaration => VariableDeclarationKind::Local,
+            ParseTreeNonTerminalKind::ConstantVariableDeclaration => {
+                VariableDeclarationKind::Constant
+            }
+            ParseTreeNonTerminalKind::StaticVariableDeclaration => VariableDeclarationKind::Static,
+            _ => unreachable!(),
+        };
+
+        assert!(&[
+            LeekTokenKind::Keyword(KeywordKind::Leak),
+            LeekTokenKind::Keyword(KeywordKind::Hold),
+            LeekTokenKind::Keyword(KeywordKind::Perm)
+        ]
+        .contains(&node.children[0].terminal_token().kind));
+
+        let identifier = &node.children[1].terminal_token();
+        assert_eq!(identifier.kind, LeekTokenKind::Identifier);
+        let identifier = identifier.text.clone();
+
+        assert_eq!(
+            node.children[2].terminal_token().kind,
+            LeekTokenKind::Equals
+        );
+
+        if let ParseTreeNode::Terminal(terminal) = &node.children[3] {
+            if terminal.kind == LeekTokenKind::Colon {
+                todo!("Parse leak with explicit type")
+            } else {
+                unreachable!("Terminal token in leak statement was not a colon")
+            }
+        } else if kind == VariableDeclarationKind::Constant {
+            unreachable!("Constant variable declaration must have explicit type")
+        } else if kind == VariableDeclarationKind::Static {
+            unreachable!("Static variable declaration must have explicit type")
+        }
+
+        let value = Expression::from_node(node.children[3].non_terminal());
+
+        VariableDeclaration {
+            kind,
+            identifier,
+            ty: None,
+            value,
+        }
     }
 }
 
@@ -386,7 +439,11 @@ impl FromNode for BinaryExpression {
     fn from_node(node: &ParseTreeNodeNonTerminal) -> Self {
         assert_nt_kind(node, ParseTreeNonTerminalKind::BinaryExpression);
 
-        assert_eq!(node.children.len(), 3, "Binary expression must have 3 children");
+        assert_eq!(
+            node.children.len(),
+            3,
+            "Binary expression must have 3 children"
+        );
 
         let left = Expression::from_node(node.children[0].non_terminal());
         let operator = BinaryOperator::from_terminal(node.children[1].terminal_token());
@@ -625,70 +682,38 @@ impl FromNode for Statement {
             return Statement::Block(Block::from_node(node));
         }
 
-        // TODO: Refactor this to match more non-terminal kinds
-
         // Other kind of statement
-        match &node.children[0] {
-            ParseTreeNode::Terminal(terminal) => {
-                let LeekTokenKind::Keyword(keyword) = terminal.kind else {
-                   panic!("Expected keyword token in statement, got {:?}", terminal.kind)
-                };
+        let non_terminal = node.children[0].non_terminal();
 
-                match keyword {
-                    KeywordKind::Yeet => {
-                        let expression = Expression::from_node(node.children[1].non_terminal());
-                        Statement::Yeet(expression)
-                    }
-                    KeywordKind::Leak => {
-                        let identifier = &node.children[1].terminal_token();
-                        assert_eq!(identifier.kind, LeekTokenKind::Identifier);
-                        let identifier = identifier.text.clone();
-
-                        assert_eq!(
-                            node.children[2].terminal_token().kind,
-                            LeekTokenKind::Equals
-                        );
-
-                        if let ParseTreeNode::Terminal(terminal) = &node.children[3] {
-                            if terminal.kind == LeekTokenKind::Colon {
-                                todo!("Parse leak with explicit type")
-                            } else {
-                                unreachable!("Terminal token in leak statement was not a colon")
-                            }
-                        }
-
-                        let value = Expression::from_node(node.children[3].non_terminal());
-
-                        Statement::VariableDeclaration(VariableDeclaration {
-                            kind: VariableDeclarationKind::Local,
-                            identifier,
-                            ty: None,
-                            value,
-                        })
-                    }
-
-                    _ => unreachable!("Statement node began with non-statement keyword"),
-                }
+        match non_terminal.kind {
+            ParseTreeNonTerminalKind::VariableAssignment => {
+                Statement::VariableAssignment(VariableAssignment::from_node(non_terminal))
             }
-            ParseTreeNode::NonTerminal(non_terminal) => match non_terminal.kind {
-                ParseTreeNonTerminalKind::QualifiedIdentifier => {
-                    let identifier =
-                        QualifiedIdentifier::from_node(node.children[0].non_terminal());
-                    let operator =
-                        AssignmentOperator::from_terminal(node.children[1].terminal_token());
-                    let value = Expression::from_node(node.children[2].non_terminal());
+            ParseTreeNonTerminalKind::FunctionCallExpression => {
+                Statement::FunctionCall(FunctionCallExpression::from_node(non_terminal))
+            }
+            ParseTreeNonTerminalKind::LocalVariableDeclaration => {
+                Statement::VariableDeclaration(VariableDeclaration::from_node(non_terminal))
+            }
+            ParseTreeNonTerminalKind::Yeet => {
+                let expression = Expression::from_node(non_terminal.children[1].non_terminal());
+                Statement::Yeet(expression)
+            }
+            _ => unreachable!("Statement node began with non-statement non-terminal"),
+        }
+    }
+}
 
-                    Statement::VariableAssignment(VariableAssignment {
-                        identifier,
-                        operator,
-                        value,
-                    })
-                }
-                ParseTreeNonTerminalKind::FunctionCallExpression => {
-                    Statement::FunctionCall(FunctionCallExpression::from_node(non_terminal))
-                }
-                _ => unreachable!("Statement node began with non-statement non-terminal"),
-            },
+impl FromNode for VariableAssignment {
+    fn from_node(node: &ParseTreeNodeNonTerminal) -> Self {
+        let identifier = QualifiedIdentifier::from_node(node.children[0].non_terminal());
+        let operator = AssignmentOperator::from_terminal(node.children[1].terminal_token());
+        let value = Expression::from_node(node.children[2].non_terminal());
+
+        VariableAssignment {
+            identifier,
+            operator,
+            value,
         }
     }
 }
