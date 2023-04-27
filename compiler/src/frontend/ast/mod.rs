@@ -136,7 +136,8 @@ pub struct UnaryExpression {
 #[derive(Debug, PartialEq)]
 pub struct BinaryExpression {
     pub binary_operator: BinaryOperator,
-    pub expression: Box<Expression>,
+    pub lhs: Box<Expression>,
+    pub rhs: Box<Expression>,
 }
 
 #[derive(Debug, PartialEq)]

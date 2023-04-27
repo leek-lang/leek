@@ -1,14 +1,17 @@
 use core::panic;
 
-use crate::frontend::{
-    ast::{
-        AssignmentOperator, Atom, BinaryExpression, Block, FunctionCallExpression,
-        FunctionDefinition, FunctionParameter, Statement, StructDefinition, StructFieldAccess,
-        StructInitialization, StructMethodCall, UnaryExpression, VariableDeclaration,
-        VariableDeclarationKind,
+use crate::{
+    common::lang::BinaryOperator,
+    frontend::{
+        ast::{
+            AssignmentOperator, Atom, BinaryExpression, Block, FunctionCallExpression,
+            FunctionDefinition, FunctionParameter, Statement, StructDefinition, StructFieldAccess,
+            StructInitialization, StructMethodCall, UnaryExpression, VariableDeclaration,
+            VariableDeclarationKind,
+        },
+        lexer::{IntegerLiteralKind, KeywordKind, LeekToken, LeekTokenKind},
+        parser::{ParseTree, ParseTreeNode, ParseTreeNodeNonTerminal, ParseTreeNonTerminalKind},
     },
-    lexer::{IntegerLiteralKind, KeywordKind, LeekToken, LeekTokenKind},
-    parser::{ParseTree, ParseTreeNode, ParseTreeNodeNonTerminal, ParseTreeNonTerminalKind},
 };
 
 use super::{
@@ -351,9 +354,49 @@ impl FromNode for FunctionCallExpression {
     }
 }
 
+impl FromTerminal for BinaryOperator {
+    fn from_terminal(node: &LeekToken) -> Self {
+        match node.kind {
+            LeekTokenKind::DoubleEquals => Self::DoubleEquals,
+            LeekTokenKind::LessThan => Self::LessThan,
+            LeekTokenKind::LessThanOrEqual => Self::LessThanOrEqual,
+            LeekTokenKind::GreaterThan => Self::GreaterThan,
+            LeekTokenKind::GreaterThanOrEqual => Self::GreaterThanOrEqual,
+            LeekTokenKind::Plus => Self::Plus,
+            LeekTokenKind::Minus => Self::Minus,
+            LeekTokenKind::Asterisk => Self::Asterisk,
+            LeekTokenKind::Divide => Self::Divide,
+            LeekTokenKind::Modulo => Self::Modulo,
+            LeekTokenKind::BitwiseXor => Self::BitwiseXor,
+            LeekTokenKind::BitwiseOr => Self::BitwiseOr,
+            LeekTokenKind::BitwiseAnd => Self::BitwiseAnd,
+            LeekTokenKind::Exponentiation => Self::Exponentiation,
+            LeekTokenKind::LeftShift => Self::LeftShift,
+            LeekTokenKind::RightShift => Self::RightShift,
+            LeekTokenKind::LogicalOr => Self::LogicalOr,
+            LeekTokenKind::LogicalAnd => Self::LogicalAnd,
+            _ => {
+                panic!("Invalid binary operator {:?}", node.kind);
+            }
+        }
+    }
+}
+
 impl FromNode for BinaryExpression {
-    fn from_node(_node: &ParseTreeNodeNonTerminal) -> Self {
-        todo!("build from binary expression")
+    fn from_node(node: &ParseTreeNodeNonTerminal) -> Self {
+        assert_nt_kind(node, ParseTreeNonTerminalKind::BinaryExpression);
+
+        assert_eq!(node.children.len(), 3);
+
+        let left = Expression::from_node(node.children[0].non_terminal());
+        let operator = BinaryOperator::from_terminal(node.children[1].terminal_token());
+        let right = Expression::from_node(node.children[2].non_terminal());
+
+        BinaryExpression {
+            binary_operator: operator,
+            lhs: Box::new(left),
+            rhs: Box::new(right),
+        }
     }
 }
 
