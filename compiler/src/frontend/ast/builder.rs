@@ -1,7 +1,7 @@
 use core::panic;
 
 use crate::{
-    common::lang::BinaryOperator,
+    common::lang::{BinaryOperator, UnaryOperator},
     frontend::{
         ast::{
             AssignmentOperator, Atom, BinaryExpression, Block, FunctionCallExpression,
@@ -353,9 +353,34 @@ impl FromNode for Atom {
     }
 }
 
+impl FromTerminal for UnaryOperator {
+    fn from_terminal(node: &LeekToken) -> Self {
+        match node.kind {
+            LeekTokenKind::BitwiseNot => Self::BitwiseNot,
+            LeekTokenKind::LogicalNot => Self::LogicalNot,
+            LeekTokenKind::Asterisk => Self::Asterisk,
+            _ => unreachable!("Invalid binary operator {:?}", node.kind),
+        }
+    }
+}
+
 impl FromNode for UnaryExpression {
-    fn from_node(_node: &ParseTreeNodeNonTerminal) -> Self {
-        todo!("build from unary expression")
+    fn from_node(node: &ParseTreeNodeNonTerminal) -> Self {
+        assert_nt_kind(node, ParseTreeNonTerminalKind::UnaryExpression);
+
+        assert_eq!(
+            node.children.len(),
+            2,
+            "Unary expression must have 2 children"
+        );
+
+        let operator = UnaryOperator::from_terminal(node.children[0].terminal_token());
+        let expr = Expression::from_node(node.children[1].non_terminal());
+
+        UnaryExpression {
+            unary_operator: operator,
+            expression: Box::new(expr),
+        }
     }
 }
 
@@ -431,9 +456,7 @@ impl FromTerminal for BinaryOperator {
             LeekTokenKind::RightShift => Self::RightShift,
             LeekTokenKind::LogicalOr => Self::LogicalOr,
             LeekTokenKind::LogicalAnd => Self::LogicalAnd,
-            _ => {
-                panic!("Invalid binary operator {:?}", node.kind);
-            }
+            _ => unreachable!("Invalid binary operator {:?}", node.kind),
         }
     }
 }
@@ -1033,6 +1056,55 @@ mod tests {
                                     Position { row: 1, col: 16 },
                                 ),
                             })),
+                        })],
+                    },
+                }],
+                struct_definitions: vec![],
+                enum_definitions: vec![],
+            },
+        };
+
+        assert_ast_eq!(ast, expected);
+    }
+
+    #[test]
+    fn should_parse_unary() {
+        const INPUT: &str = indoc! {r#"
+        fn main() {
+            leak a = ~69
+        }
+        "#};
+
+        let ast = parse_string(INPUT.to_owned()).unwrap_or_else(|e| panic!("{e}"));
+
+        let expected = LeekAst {
+            source_file: SourceFile {
+                path: None,
+                content: INPUT.to_owned(),
+            },
+            root: Program {
+                constant_variables: vec![],
+                static_variables: vec![],
+                function_definitions: vec![FunctionDefinition {
+                    name: "main".to_owned(),
+                    struct_identifier: None,
+                    parameters: vec![],
+                    return_type: Type::Primitive(PrimitiveKind::Void),
+                    body: Block {
+                        statements: vec![Statement::VariableDeclaration(VariableDeclaration {
+                            kind: VariableDeclarationKind::Local,
+                            identifier: "a".to_owned(),
+                            ty: None,
+                            value: Expression::UnaryExpression(UnaryExpression {
+                                unary_operator: UnaryOperator::BitwiseNot,
+                                expression: Box::new(Expression::Atom(Atom::Literal(Literal {
+                                    kind: LiteralKind::Integer(IntegerKind::I32(69)),
+                                    span: Span::new(
+                                        Position { row: 1, col: 14 },
+                                        Position { row: 1, col: 16 },
+                                    ),
+                                }))),
+                            }),
                         })],
                     },
                 }],
