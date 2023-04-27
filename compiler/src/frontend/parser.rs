@@ -547,8 +547,6 @@ impl LeekParser {
     fn parse_statement(&mut self) -> Result<ParseTreeNode, LeekCompilerError> {
         let mut children = Vec::new();
 
-        // TODO: create different statement types
-
         match self.peek_expect()?.kind {
             LeekTokenKind::Keyword(KeywordKind::Yeet) => {
                 children.push(self.parse_yeet_statement()?);
@@ -924,7 +922,7 @@ impl LeekParser {
     ) -> Result<ParseTreeNode, LeekCompilerError> {
         let mut children = Vec::new();
 
-        // TODO: Parse operator precedence (not sure how to do this easily)
+        // TODO: Parse operator precedence (use a stack)
 
         // Left hand expression
         children.push(lhs);
