@@ -1115,4 +1115,60 @@ mod tests {
 
         assert_ast_eq!(ast, expected);
     }
+
+    #[test]
+    fn should_parse_binary() {
+        const INPUT: &str = indoc! {r#"
+        fn main() {
+            leak a = 69 - 420
+        }
+        "#};
+
+        let ast = parse_string(INPUT.to_owned()).unwrap_or_else(|e| panic!("{e}"));
+
+        let expected = LeekAst {
+            source_file: SourceFile {
+                path: None,
+                content: INPUT.to_owned(),
+            },
+            root: Program {
+                constant_variables: vec![],
+                static_variables: vec![],
+                function_definitions: vec![FunctionDefinition {
+                    name: "main".to_owned(),
+                    struct_identifier: None,
+                    parameters: vec![],
+                    return_type: Type::Primitive(PrimitiveKind::Void),
+                    body: Block {
+                        statements: vec![Statement::VariableDeclaration(VariableDeclaration {
+                            kind: VariableDeclarationKind::Local,
+                            identifier: "a".to_owned(),
+                            ty: None,
+                            value: Expression::BinaryExpression(BinaryExpression {
+                                binary_operator: BinaryOperator::Minus,
+                                lhs: Box::new(Expression::Atom(Atom::Literal(Literal {
+                                    kind: LiteralKind::Integer(IntegerKind::I32(69)),
+                                    span: Span::new(
+                                        Position { row: 1, col: 13 },
+                                        Position { row: 1, col: 15 },
+                                    ),
+                                }))),
+                                rhs: Box::new(Expression::Atom(Atom::Literal(Literal {
+                                    kind: LiteralKind::Integer(IntegerKind::I32(420)),
+                                    span: Span::new(
+                                        Position { row: 1, col: 18 },
+                                        Position { row: 1, col: 21 },
+                                    ),
+                                }))),
+                            }),
+                        })],
+                    },
+                }],
+                struct_definitions: vec![],
+                enum_definitions: vec![],
+            },
+        };
+
+        assert_ast_eq!(ast, expected);
+    }
 }
