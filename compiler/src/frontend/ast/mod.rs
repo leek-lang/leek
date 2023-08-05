@@ -5,12 +5,12 @@ use super::position::{SourceFile, Span};
 pub mod builder;
 
 #[derive(Debug)]
-pub struct LeekAst {
+pub struct Ast {
     pub source_file: SourceFile,
     pub items: Vec<ProgramPart>,
 }
 
-impl PartialEq for LeekAst {
+impl PartialEq for Ast {
     fn eq(&self, other: &Self) -> bool {
         self.items == other.items
     }

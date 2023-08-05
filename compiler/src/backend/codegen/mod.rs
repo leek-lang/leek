@@ -1,16 +1,16 @@
 use std::{path::Path, process::Command, str::FromStr};
 
-use crate::frontend::ast::LeekAst;
+use crate::frontend::ast::Ast;
 
 use self::x86_linux_gnu::CodeGeneratorX86LinuxGNU;
 
-use super::LeekCompilerConfig;
+use super::CompilerConfig;
 
 pub mod x86_64_linux_gnu;
 pub mod x86_linux_gnu;
 
 pub trait CodeGenerator {
-    fn generate_assembly(&self, ast: LeekAst, compiler_options: &LeekCompilerConfig) -> String;
+    fn generate_assembly(&self, ast: Ast, compiler_options: &CompilerConfig) -> String;
     fn create_assembler_command(&self, input_file: &Path, output_file: &Path) -> Command;
     fn create_linker_command(&self, input_file: &Path, output_file: &Path) -> Command;
 }

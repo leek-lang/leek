@@ -12,17 +12,17 @@ use crate::{
 #[allow(dead_code)]
 #[cfg_attr(not(test), derive(Debug))]
 #[derive(Clone)]
-pub struct LeekToken {
-    pub kind: LeekTokenKind,
+pub struct Token {
+    pub kind: TokenKind,
     pub text: String,
     pub span: Span,
 }
 
-impl<T> From<(LeekTokenKind, T)> for LeekToken
+impl<T> From<(TokenKind, T)> for Token
 where
     T: Into<String> + Sized,
 {
-    fn from((kind, text): (LeekTokenKind, T)) -> Self {
+    fn from((kind, text): (TokenKind, T)) -> Self {
         Self {
             kind,
             text: text.into(),
@@ -32,22 +32,22 @@ where
 }
 
 #[cfg(test)]
-impl Debug for LeekToken {
+impl Debug for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("LeekToken")
+        f.debug_struct("Token")
             .field("kind", &self.kind)
             .field("text", &self.text)
             .finish()
     }
 }
 
-impl Display for LeekToken {
+impl Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?} => {:?}", self.kind, self.text)
     }
 }
 
-impl PartialEq for LeekToken {
+impl PartialEq for Token {
     fn eq(&self, other: &Self) -> bool {
         self.kind == other.kind && self.text == other.text
     }
@@ -96,7 +96,7 @@ impl TryFrom<&String> for KeywordKind {
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
-pub enum LeekTokenKind {
+pub enum TokenKind {
     // Significant Whitespace
     Newline,
 
@@ -174,7 +174,7 @@ pub enum LeekTokenKind {
     DollarSign,     // $
 }
 
-impl LeekTokenKind {
+impl TokenKind {
     pub fn is_assignment_operator(&self) -> bool {
         matches!(
             self,
@@ -232,7 +232,7 @@ impl LeekTokenKind {
         )
     }
 
-    fn grouping_symbol_from(c: char) -> LeekTokenKind {
+    fn grouping_symbol_from(c: char) -> TokenKind {
         match c {
             '(' => Self::OpenParen,
             ')' => Self::CloseParen,
@@ -244,7 +244,7 @@ impl LeekTokenKind {
         }
     }
 
-    fn single_operator_from(c: char) -> LeekTokenKind {
+    fn single_operator_from(c: char) -> TokenKind {
         match c {
             '=' => Self::Equals,
             '<' => Self::LessThan,
@@ -263,7 +263,7 @@ impl LeekTokenKind {
         }
     }
 
-    fn double_operator_from(c: char) -> LeekTokenKind {
+    fn double_operator_from(c: char) -> TokenKind {
         match c {
             '*' => Self::Exponentiation,
             '<' => Self::LeftShift,
@@ -274,7 +274,7 @@ impl LeekTokenKind {
         }
     }
 
-    fn single_equals_operator_from(c: char) -> LeekTokenKind {
+    fn single_equals_operator_from(c: char) -> TokenKind {
         match c {
             '=' => Self::DoubleEquals,
             '<' => Self::LessThanOrEqual,
@@ -293,7 +293,7 @@ impl LeekTokenKind {
         }
     }
 
-    fn double_equals_operator_from(c: char) -> LeekTokenKind {
+    fn double_equals_operator_from(c: char) -> TokenKind {
         match c {
             '*' => Self::ExponentiationEquals,
             '<' => Self::LeftShiftEquals,
@@ -304,7 +304,7 @@ impl LeekTokenKind {
         }
     }
 
-    fn other_symbol_from(c: impl Into<String>) -> LeekTokenKind {
+    fn other_symbol_from(c: impl Into<String>) -> TokenKind {
         match c.into().as_str() {
             "->" => Self::Arrow,
             "?" => Self::QuestionMark,
@@ -357,7 +357,7 @@ impl From<LexerErrorKind> for LexerError {
 #[derive(Debug, PartialEq)]
 pub enum LexerErrorKind {
     UnexpectedChar(char),
-    UnclosedWrappedLiteral(LeekTokenKind),
+    UnclosedWrappedLiteral(TokenKind),
     UnexpectedEndOfFloatLiteral,
     UnexpectedCharactersInFloatLiteral,
     UnexpectedExtraPeriodInFloatLiteral,
@@ -440,18 +440,6 @@ impl Display for LexerError {
     }
 }
 
-/// Represents a generic Lexer object
-pub trait Lexer {
-    fn next(&mut self) -> Result<Option<LeekToken>, LexerError>;
-    fn has_next(&self) -> Result<bool, LexerError>;
-    fn peek(&self) -> Result<Option<&LeekToken>, LexerError>;
-    fn peek_nth(&self, n: usize) -> Result<Option<&LeekToken>, LexerError>;
-    fn get_position(&self) -> &Position;
-    fn get_source_file(&self) -> &SourceFile;
-}
-
-/// Defines a specific Lexer for Leek
-///
 /// This lexer implementation uses a "lazy" iterator approach such
 /// that characters are not read from the input stream until a token is requested.
 ///
@@ -462,14 +450,14 @@ pub trait Lexer {
 /// UnsafeCell is used to allow for an optimization of the peek function that stores
 /// the peeked tokens in a VecDeque. This is done to avoid having to re-lex the same
 /// tokens multiple times.
-pub struct LeekLexer {
+pub struct Lexer {
     character_reader: UnsafeCell<Box<dyn CharacterReader>>,
-    peek_forward: UnsafeCell<VecDeque<LeekToken>>,
+    peek_forward: UnsafeCell<VecDeque<Token>>,
 }
 
-impl LeekLexer {
+impl Lexer {
     pub fn new(character_reader: impl CharacterReader + 'static) -> Self {
-        LeekLexer {
+        Lexer {
             character_reader: UnsafeCell::new(Box::new(character_reader)),
             peek_forward: UnsafeCell::new(VecDeque::new()),
         }
@@ -477,11 +465,7 @@ impl LeekLexer {
 
     /// Read a literal that is wrapped in the provided character
     /// The wrapper character can be escaped using the backslash character `\`
-    fn read_wrapped_escapable(
-        &self,
-        wrapper: char,
-        kind: LeekTokenKind,
-    ) -> Result<LeekToken, LexerError> {
+    fn read_wrapped_escapable(&self, wrapper: char, kind: TokenKind) -> Result<Token, LexerError> {
         let character_reader = unsafe { &mut *self.character_reader.get() };
 
         let mut text = String::new();
@@ -547,7 +531,7 @@ impl LeekLexer {
 
         let end = character_reader.get_position().clone();
 
-        Ok(LeekToken {
+        Ok(Token {
             kind,
             text,
             span: Span::new(start, end),
@@ -555,7 +539,7 @@ impl LeekLexer {
     }
 
     /// Reads a generic number literal into either an integer or double
-    fn read_number_literal(&self) -> Result<LeekToken, LexerError> {
+    fn read_number_literal(&self) -> Result<Token, LexerError> {
         /*
          * Integer Cases:
          *
@@ -621,7 +605,7 @@ impl LeekLexer {
         &self,
         literal_kind: IntegerLiteralKind,
         is_in_base: fn(char) -> bool,
-    ) -> Result<LeekToken, LexerError> {
+    ) -> Result<Token, LexerError> {
         let character_reader = unsafe { &mut *self.character_reader.get() };
 
         macro_rules! create_error {
@@ -684,14 +668,14 @@ impl LeekLexer {
 
         let end = character_reader.get_position().clone();
 
-        Ok(LeekToken {
-            kind: LeekTokenKind::IntegerLiteral(literal_kind),
+        Ok(Token {
+            kind: TokenKind::IntegerLiteral(literal_kind),
             text,
             span: Span::new(start, end),
         })
     }
 
-    fn read_dec_int_or_float_literal(&self) -> Result<LeekToken, LexerError> {
+    fn read_dec_int_or_float_literal(&self) -> Result<Token, LexerError> {
         enum NumberLexingState {
             Integer,
             Float,
@@ -792,12 +776,12 @@ impl LeekLexer {
 
         let end = character_reader.get_position().clone();
 
-        Ok(LeekToken {
+        Ok(Token {
             kind: match state {
                 NumberLexingState::Integer => {
-                    LeekTokenKind::IntegerLiteral(IntegerLiteralKind::Decimal)
+                    TokenKind::IntegerLiteral(IntegerLiteralKind::Decimal)
                 }
-                NumberLexingState::Float => LeekTokenKind::FloatLiteral,
+                NumberLexingState::Float => TokenKind::FloatLiteral,
             },
             text,
             span: Span::new(start, end),
@@ -839,14 +823,14 @@ impl LeekLexer {
     }
 
     /// Requires character to be available
-    fn read_single(&self, kind: LeekTokenKind) -> LeekToken {
+    fn read_single(&self, kind: TokenKind) -> Token {
         let character_reader = unsafe { &mut *self.character_reader.get() };
 
         let start = character_reader.get_position().clone();
         let c = character_reader.next().unwrap();
         let end = character_reader.get_position().clone();
 
-        LeekToken {
+        Token {
             kind,
             text: c.into(),
             span: Span::new(start, end),
@@ -875,7 +859,7 @@ impl LeekLexer {
     /// Reads a fixed number of chars from the character reader and returns the resulting token
     ///
     /// Requires that the character reader be checked in advance to contain the correct sequence
-    fn read_multi(&self, string: &str, kind: LeekTokenKind) -> LeekToken {
+    fn read_multi(&self, string: &str, kind: TokenKind) -> Token {
         let character_reader = unsafe { &mut *self.character_reader.get() };
 
         let mut text = String::new();
@@ -899,7 +883,7 @@ impl LeekLexer {
 
         let end = character_reader.get_position().clone();
 
-        LeekToken {
+        Token {
             kind,
             text,
             span: Span::new(start, end),
@@ -917,19 +901,14 @@ impl LeekLexer {
     /// Reads a fixed number of chars with an `=` suffixed to the given prefix from the character reader and returns the resulting token
     ///
     /// Requires that the character reader be checked in advance to contain the correct sequence
-    fn read_multi_equals(&self, prefix: impl Into<String>, kind: LeekTokenKind) -> LeekToken {
+    fn read_multi_equals(&self, prefix: impl Into<String>, kind: TokenKind) -> Token {
         let mut c: String = prefix.into();
         c.push('=');
 
         self.read_multi(&c, kind)
     }
 
-    fn read_single_operator(
-        &self,
-        c: char,
-        single: LeekTokenKind,
-        equals: LeekTokenKind,
-    ) -> LeekToken {
+    fn read_single_operator(&self, c: char, single: TokenKind, equals: TokenKind) -> Token {
         if self.lookahead_has_equals(c, 0) {
             self.read_multi_equals(c, equals)
         } else {
@@ -937,12 +916,7 @@ impl LeekLexer {
         }
     }
 
-    fn read_double_operator(
-        &self,
-        c: char,
-        normal: LeekTokenKind,
-        equals: LeekTokenKind,
-    ) -> LeekToken {
+    fn read_double_operator(&self, c: char, normal: TokenKind, equals: TokenKind) -> Token {
         if self.lookahead_has_equals(c, 1) {
             self.read_multi_equals(c.to_string().repeat(2), equals)
         } else {
@@ -950,7 +924,7 @@ impl LeekLexer {
         }
     }
 
-    fn read_next_token(&self) -> Result<Option<LeekToken>, LexerError> {
+    fn read_next_token(&self) -> Result<Option<Token>, LexerError> {
         let character_reader = unsafe { &mut *self.character_reader.get() };
 
         while character_reader.has_next() {
@@ -961,7 +935,7 @@ impl LeekLexer {
 
             let token = Ok(Some(match first_char {
                 // New lines are significant
-                '\n' => self.read_single(LeekTokenKind::Newline),
+                '\n' => self.read_single(TokenKind::Newline),
 
                 // Whitespace
                 a if a.is_ascii_whitespace() => {
@@ -979,10 +953,10 @@ impl LeekLexer {
                 a if a.is_ascii_alphabetic() => {
                     let word = self.read_while(|c| c.is_ascii_alphanumeric() || c == '_');
 
-                    LeekToken {
+                    Token {
                         kind: match KeywordKind::try_from(&word) {
-                            Ok(kw_kind) => LeekTokenKind::Keyword(kw_kind),
-                            Err(_) => LeekTokenKind::Identifier,
+                            Ok(kw_kind) => TokenKind::Keyword(kw_kind),
+                            Err(_) => TokenKind::Identifier,
                         },
                         text: word,
                         span: Span::new(start, character_reader.get_position().clone()),
@@ -990,28 +964,28 @@ impl LeekLexer {
                 }
 
                 // Literals
-                '"' => self.read_wrapped_escapable('"', LeekTokenKind::StringLiteral)?,
-                '\'' => self.read_wrapped_escapable('\'', LeekTokenKind::CharLiteral)?,
+                '"' => self.read_wrapped_escapable('"', TokenKind::StringLiteral)?,
+                '\'' => self.read_wrapped_escapable('\'', TokenKind::CharLiteral)?,
                 a if a.is_ascii_digit() => self.read_number_literal()?,
 
                 // Grouping Symbols
                 c @ ('(' | ')' | '[' | ']' | '{' | '}') => {
-                    self.read_single(LeekTokenKind::grouping_symbol_from(c))
+                    self.read_single(TokenKind::grouping_symbol_from(c))
                 }
 
                 // Arrows (`->`)
                 '-' if character_reader.peek_nth(1).is_some_and(|c| *c == '>') => {
-                    self.read_multi("->", LeekTokenKind::Arrow)
+                    self.read_multi("->", TokenKind::Arrow)
                 }
 
                 // Bang Coalescing (`!.`)
                 '!' if character_reader.peek_nth(1).is_some_and(|c| *c == '.') => {
-                    self.read_multi("!.", LeekTokenKind::BangCoalescing)
+                    self.read_multi("!.", TokenKind::BangCoalescing)
                 }
 
                 // Double Colon (`::`)
                 ':' if character_reader.peek_nth(1).is_some_and(|c| *c == ':') => {
-                    self.read_multi("::", LeekTokenKind::DoubleColon)
+                    self.read_multi("::", TokenKind::DoubleColon)
                 }
 
                 // Double operators (must come first because of lookahead clash)
@@ -1020,8 +994,8 @@ impl LeekLexer {
                 {
                     self.read_double_operator(
                         c,
-                        LeekTokenKind::double_operator_from(c),
-                        LeekTokenKind::double_equals_operator_from(c),
+                        TokenKind::double_operator_from(c),
+                        TokenKind::double_equals_operator_from(c),
                     )
                 }
 
@@ -1029,13 +1003,13 @@ impl LeekLexer {
                 c @ ('=' | '<' | '>' | '+' | '-' | '*' | '/' | '%' | '~' | '!' | '&' | '|'
                 | '^') => self.read_single_operator(
                     c,
-                    LeekTokenKind::single_operator_from(c),
-                    LeekTokenKind::single_equals_operator_from(c),
+                    TokenKind::single_operator_from(c),
+                    TokenKind::single_equals_operator_from(c),
                 ),
 
                 // Non-Operator symbols
                 c @ ('?' | ',' | ';' | ':' | '.' | '\\' | '_' | '@' | '#' | '$') => {
-                    self.read_single(LeekTokenKind::other_symbol_from(c))
+                    self.read_single(TokenKind::other_symbol_from(c))
                 }
 
                 // Other
@@ -1056,7 +1030,7 @@ impl LeekLexer {
         Ok(None)
     }
 
-    fn _next(&self) -> Result<Option<LeekToken>, LexerError> {
+    fn _next(&self) -> Result<Option<Token>, LexerError> {
         let peek_forward = unsafe { &mut *self.peek_forward.get() };
 
         // Check if more tokens have already been precomputed for us
@@ -1069,12 +1043,13 @@ impl LeekLexer {
     }
 }
 
-impl Lexer for LeekLexer {
-    fn next(&mut self) -> Result<Option<LeekToken>, LexerError> {
+/// Lexer public interface
+impl Lexer {
+    pub fn next(&mut self) -> Result<Option<Token>, LexerError> {
         self._next()
     }
 
-    fn peek(&self) -> Result<Option<&LeekToken>, LexerError> {
+    pub fn peek(&self) -> Result<Option<&Token>, LexerError> {
         let peek_forward = unsafe { &mut *self.peek_forward.get() };
 
         // Check if more tokens have already been precomputed for us
@@ -1098,7 +1073,7 @@ impl Lexer for LeekLexer {
         }
     }
 
-    fn peek_nth(&self, n: usize) -> Result<Option<&LeekToken>, LexerError> {
+    pub fn peek_nth(&self, n: usize) -> Result<Option<&Token>, LexerError> {
         let peek_forward = unsafe { &mut *self.peek_forward.get() };
 
         // Check if `n` tokens have already been precomputed for us
@@ -1112,8 +1087,8 @@ impl Lexer for LeekLexer {
         for _ in peek_forward.len()..=n {
             // Get the next token or return early if none more are found
             let Some(token) = self.read_next_token()? else {
-                    return Ok(None);
-                };
+                return Ok(None);
+            };
 
             // Store the token for later usage
             peek_forward.push_back(token);
@@ -1123,17 +1098,17 @@ impl Lexer for LeekLexer {
         Ok(peek_forward.get(n))
     }
 
-    fn has_next(&self) -> Result<bool, LexerError> {
+    pub fn has_next(&self) -> Result<bool, LexerError> {
         Ok(self.peek()?.is_some())
     }
 
-    fn get_position(&self) -> &Position {
+    pub fn get_position(&self) -> &Position {
         let character_reader = unsafe { &*self.character_reader.get() };
 
         character_reader.get_position()
     }
 
-    fn get_source_file(&self) -> &SourceFile {
+    pub fn get_source_file(&self) -> &SourceFile {
         let character_reader = unsafe { &*self.character_reader.get() };
 
         character_reader.get_source_file()
@@ -1143,18 +1118,16 @@ impl Lexer for LeekLexer {
 #[cfg(test)]
 mod test {
     use crate::{
-        frontend::lexer::{
-            IntegerLiteralKind::*, KeywordKind::*, LeekToken as LT, LeekTokenKind::*,
-        },
+        frontend::lexer::{IntegerLiteralKind::*, KeywordKind::*, Token as LT, TokenKind::*},
         frontend::reader::FileReader,
     };
 
-    use super::{LeekLexer, Lexer, LexerError, LexerErrorKind::*};
+    use super::{Lexer, LexerError, LexerErrorKind::*};
 
     fn compare_input_to_expected(input: &str, expected_tokens: Vec<LT>) {
         // Collect tokens from lexer
         let reader = FileReader::from(input.to_owned());
-        let mut lexer = LeekLexer::new(reader);
+        let mut lexer = Lexer::new(reader);
 
         let mut lexer_tokens = Vec::new();
 
@@ -1171,7 +1144,7 @@ mod test {
     fn lex_input(input: &str) -> Result<Vec<LT>, LexerError> {
         // Collect tokens from lexer
         let reader = FileReader::from(input.to_owned());
-        let mut lexer = LeekLexer::new(reader);
+        let mut lexer = Lexer::new(reader);
 
         let mut lexer_tokens = Vec::new();
 

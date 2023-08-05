@@ -9,19 +9,19 @@ use crate::{
             StructInitialization, StructMethodCall, UnaryExpression, VariableDeclaration,
             VariableDeclarationKind,
         },
-        lexer::{IntegerLiteralKind, KeywordKind, LeekToken, LeekTokenKind},
+        lexer::{IntegerLiteralKind, KeywordKind, Token, TokenKind},
         parser::{ParseTree, ParseTreeNode, ParseTreeNodeNonTerminal, ParseTreeNonTerminalKind},
     },
 };
 
 use super::{
-    Expression, IntegerKind, LeekAst, Literal, LiteralKind, PrimitiveKind, ProgramPart,
+    Ast, Expression, IntegerKind, Literal, LiteralKind, PrimitiveKind, ProgramPart,
     QualifiedIdentifier, Type, VariableAssignment,
 };
 
 // TODO: Add spans for ast nodes
 
-impl LeekAst {
+impl Ast {
     /// This function is infallible. If there is an error, it is due to a bug in the parser or the builder.
     /// As such, this function will panic if there is an error.
     pub fn build_from(parse_tree: ParseTree) -> Self {
@@ -102,7 +102,7 @@ trait FromTerminal
 where
     Self: Sized,
 {
-    fn from_terminal(node: &LeekToken) -> Self;
+    fn from_terminal(node: &Token) -> Self;
 }
 
 impl FromNode for Type {
@@ -195,23 +195,20 @@ impl FromNode for VariableDeclaration {
         };
 
         assert!(&[
-            LeekTokenKind::Keyword(KeywordKind::Leak),
-            LeekTokenKind::Keyword(KeywordKind::Hold),
-            LeekTokenKind::Keyword(KeywordKind::Perm)
+            TokenKind::Keyword(KeywordKind::Leak),
+            TokenKind::Keyword(KeywordKind::Hold),
+            TokenKind::Keyword(KeywordKind::Perm)
         ]
         .contains(&node.children[0].terminal_token().kind));
 
         let identifier = &node.children[1].terminal_token();
-        assert_eq!(identifier.kind, LeekTokenKind::Identifier);
+        assert_eq!(identifier.kind, TokenKind::Identifier);
         let identifier = identifier.text.clone();
 
-        assert_eq!(
-            node.children[2].terminal_token().kind,
-            LeekTokenKind::Equals
-        );
+        assert_eq!(node.children[2].terminal_token().kind, TokenKind::Equals);
 
         if let ParseTreeNode::Terminal(terminal) = &node.children[3] {
-            if terminal.kind == LeekTokenKind::Colon {
+            if terminal.kind == TokenKind::Colon {
                 todo!("Parse leak with explicit type")
             } else {
                 unreachable!("Terminal token in leak statement was not a colon")
@@ -282,9 +279,9 @@ impl FromNode for Expression {
     }
 }
 
-impl From<LeekToken> for IntegerKind {
-    fn from(value: LeekToken) -> Self {
-        let LeekTokenKind::IntegerLiteral(integer) = value.kind else {
+impl From<Token> for IntegerKind {
+    fn from(value: Token) -> Self {
+        let TokenKind::IntegerLiteral(integer) = value.kind else {
             panic!("Expected integer literal, found {:?}", value.kind)
         };
 
@@ -311,25 +308,25 @@ impl FromNode for Atom {
 
         let atom = match &node.children[0] {
             ParseTreeNode::Terminal(terminal) => match terminal.kind {
-                LeekTokenKind::StringLiteral => Atom::Literal(Literal {
+                TokenKind::StringLiteral => Atom::Literal(Literal {
                     kind: LiteralKind::String(terminal.text.clone()),
                     span: terminal.span.clone(),
                 }),
-                LeekTokenKind::CharLiteral => Atom::Literal(Literal {
+                TokenKind::CharLiteral => Atom::Literal(Literal {
                     kind: LiteralKind::Char(terminal.text.chars().collect::<Vec<_>>()[1]),
                     span: terminal.span.clone(),
                 }),
-                LeekTokenKind::IntegerLiteral(_) => Atom::Literal(Literal {
+                TokenKind::IntegerLiteral(_) => Atom::Literal(Literal {
                     kind: LiteralKind::Integer(IntegerKind::from(terminal.clone())),
                     span: terminal.span.clone(),
                 }),
-                LeekTokenKind::FloatLiteral => todo!(),
-                LeekTokenKind::OpenParen => {
+                TokenKind::FloatLiteral => todo!(),
+                TokenKind::OpenParen => {
                     let expression = Expression::from_node(node.children[1].non_terminal());
 
                     assert_eq!(
                         node.children[2].terminal_token().kind,
-                        LeekTokenKind::CloseParen
+                        TokenKind::CloseParen
                     );
 
                     Atom::ParenthesizedExpression(Box::new(expression))
@@ -351,11 +348,11 @@ impl FromNode for Atom {
 }
 
 impl FromTerminal for UnaryOperator {
-    fn from_terminal(node: &LeekToken) -> Self {
+    fn from_terminal(node: &Token) -> Self {
         match node.kind {
-            LeekTokenKind::BitwiseNot => Self::BitwiseNot,
-            LeekTokenKind::LogicalNot => Self::LogicalNot,
-            LeekTokenKind::Asterisk => Self::Asterisk,
+            TokenKind::BitwiseNot => Self::BitwiseNot,
+            TokenKind::LogicalNot => Self::LogicalNot,
+            TokenKind::Asterisk => Self::Asterisk,
             _ => unreachable!("Invalid binary operator {:?}", node.kind),
         }
     }
@@ -390,20 +387,17 @@ impl FromNode for FunctionCallExpression {
 
         let identifier = QualifiedIdentifier::from_node(node.children[0].non_terminal());
 
-        assert_eq!(
-            node.children[1].terminal_token().kind,
-            LeekTokenKind::OpenParen
-        );
+        assert_eq!(node.children[1].terminal_token().kind, TokenKind::OpenParen);
 
         let arguments = match &node.children[2] {
             ParseTreeNode::Terminal(terminal) => {
-                assert_eq!(terminal.kind, LeekTokenKind::CloseParen);
+                assert_eq!(terminal.kind, TokenKind::CloseParen);
                 Vec::new()
             }
             ParseTreeNode::NonTerminal(non_terminal) => {
                 assert_eq!(
                     node.children[3].terminal_token().kind,
-                    LeekTokenKind::CloseParen
+                    TokenKind::CloseParen
                 );
 
                 assert_nt_kind(non_terminal, ParseTreeNonTerminalKind::FunctionArguments);
@@ -412,7 +406,7 @@ impl FromNode for FunctionCallExpression {
 
                 for (index, argument) in non_terminal.children.iter().enumerate() {
                     if index % 2 == 1 {
-                        assert_eq!(argument.terminal_token().kind, LeekTokenKind::Comma);
+                        assert_eq!(argument.terminal_token().kind, TokenKind::Comma);
                         continue;
                     }
 
@@ -433,26 +427,26 @@ impl FromNode for FunctionCallExpression {
 }
 
 impl FromTerminal for BinaryOperator {
-    fn from_terminal(node: &LeekToken) -> Self {
+    fn from_terminal(node: &Token) -> Self {
         match node.kind {
-            LeekTokenKind::DoubleEquals => Self::DoubleEquals,
-            LeekTokenKind::LessThan => Self::LessThan,
-            LeekTokenKind::LessThanOrEqual => Self::LessThanOrEqual,
-            LeekTokenKind::GreaterThan => Self::GreaterThan,
-            LeekTokenKind::GreaterThanOrEqual => Self::GreaterThanOrEqual,
-            LeekTokenKind::Plus => Self::Plus,
-            LeekTokenKind::Minus => Self::Minus,
-            LeekTokenKind::Asterisk => Self::Asterisk,
-            LeekTokenKind::Divide => Self::Divide,
-            LeekTokenKind::Modulo => Self::Modulo,
-            LeekTokenKind::BitwiseXor => Self::BitwiseXor,
-            LeekTokenKind::BitwiseOr => Self::BitwiseOr,
-            LeekTokenKind::BitwiseAnd => Self::BitwiseAnd,
-            LeekTokenKind::Exponentiation => Self::Exponentiation,
-            LeekTokenKind::LeftShift => Self::LeftShift,
-            LeekTokenKind::RightShift => Self::RightShift,
-            LeekTokenKind::LogicalOr => Self::LogicalOr,
-            LeekTokenKind::LogicalAnd => Self::LogicalAnd,
+            TokenKind::DoubleEquals => Self::DoubleEquals,
+            TokenKind::LessThan => Self::LessThan,
+            TokenKind::LessThanOrEqual => Self::LessThanOrEqual,
+            TokenKind::GreaterThan => Self::GreaterThan,
+            TokenKind::GreaterThanOrEqual => Self::GreaterThanOrEqual,
+            TokenKind::Plus => Self::Plus,
+            TokenKind::Minus => Self::Minus,
+            TokenKind::Asterisk => Self::Asterisk,
+            TokenKind::Divide => Self::Divide,
+            TokenKind::Modulo => Self::Modulo,
+            TokenKind::BitwiseXor => Self::BitwiseXor,
+            TokenKind::BitwiseOr => Self::BitwiseOr,
+            TokenKind::BitwiseAnd => Self::BitwiseAnd,
+            TokenKind::Exponentiation => Self::Exponentiation,
+            TokenKind::LeftShift => Self::LeftShift,
+            TokenKind::RightShift => Self::RightShift,
+            TokenKind::LogicalOr => Self::LogicalOr,
+            TokenKind::LogicalAnd => Self::LogicalAnd,
             _ => unreachable!("Invalid binary operator {:?}", node.kind),
         }
     }
@@ -559,13 +553,13 @@ impl FromNode for FunctionDefinition {
         // Make sure nodes are correct
         assert_eq!(
             parameter_nodes.first().unwrap().terminal_token().kind,
-            LeekTokenKind::OpenParen,
+            TokenKind::OpenParen,
             "Expected first token of params to be open paren"
         );
 
         assert_eq!(
             parameter_nodes.last().unwrap().terminal_token().kind,
-            LeekTokenKind::CloseParen,
+            TokenKind::CloseParen,
             "Expected last token of params to be close paren"
         );
 
@@ -575,7 +569,7 @@ impl FromNode for FunctionDefinition {
             if i % 2 == 0 {
                 assert_eq!(
                     parameter_nodes.get(i).unwrap().terminal_token().kind,
-                    LeekTokenKind::Comma,
+                    TokenKind::Comma,
                     "Expected token to be comma"
                 );
                 continue;
@@ -597,7 +591,7 @@ impl FromNode for FunctionDefinition {
 
                 assert_eq!(
                     function_return_type.children[0].terminal_token().kind,
-                    LeekTokenKind::Arrow,
+                    TokenKind::Arrow,
                     "Expected first token of return type to be arrow"
                 );
 
@@ -629,7 +623,7 @@ impl FromNode for FunctionParameter {
 
         let identifier = node.children[0].terminal_token().text.clone();
 
-        assert!(node.children[1].terminal_token().kind == LeekTokenKind::Colon);
+        assert!(node.children[1].terminal_token().kind == TokenKind::Colon);
 
         let ty = Type::from_node(node.children[2].non_terminal());
 
@@ -645,12 +639,12 @@ impl FromNode for Block {
 
         assert_eq!(
             node.children.first().unwrap().terminal_token().kind,
-            LeekTokenKind::OpenCurlyBracket
+            TokenKind::OpenCurlyBracket
         );
 
         assert_eq!(
             node.children.last().unwrap().terminal_token().kind,
-            LeekTokenKind::CloseCurlyBracket
+            TokenKind::CloseCurlyBracket
         );
 
         let mut statements = Vec::new();
@@ -665,24 +659,24 @@ impl FromNode for Block {
 }
 
 impl FromTerminal for AssignmentOperator {
-    fn from_terminal(node: &LeekToken) -> Self {
+    fn from_terminal(node: &Token) -> Self {
         match node.kind {
-            LeekTokenKind::Equals => Self::Equals,
-            LeekTokenKind::PlusEquals => Self::PlusEquals,
-            LeekTokenKind::MinusEquals => Self::MinusEquals,
-            LeekTokenKind::MultiplyEquals => Self::MultiplyEquals,
-            LeekTokenKind::DivideEquals => Self::DivideEquals,
-            LeekTokenKind::ModuloEquals => Self::ModuloEquals,
-            LeekTokenKind::BitwiseNotEquals => Self::BitwiseNotEquals,
-            LeekTokenKind::BitwiseXorEquals => Self::BitwiseXorEquals,
-            LeekTokenKind::BitwiseOrEquals => Self::BitwiseOrEquals,
-            LeekTokenKind::BitwiseAndEquals => Self::BitwiseAndEquals,
-            LeekTokenKind::LogicalNotEquals => Self::LogicalNotEquals,
-            LeekTokenKind::ExponentiationEquals => Self::ExponentiationEquals,
-            LeekTokenKind::LeftShiftEquals => Self::LeftShiftEquals,
-            LeekTokenKind::RightShiftEquals => Self::RightShiftEquals,
-            LeekTokenKind::LogicalOrEquals => Self::LogicalOrEquals,
-            LeekTokenKind::LogicalAndEquals => Self::LogicalAndEquals,
+            TokenKind::Equals => Self::Equals,
+            TokenKind::PlusEquals => Self::PlusEquals,
+            TokenKind::MinusEquals => Self::MinusEquals,
+            TokenKind::MultiplyEquals => Self::MultiplyEquals,
+            TokenKind::DivideEquals => Self::DivideEquals,
+            TokenKind::ModuloEquals => Self::ModuloEquals,
+            TokenKind::BitwiseNotEquals => Self::BitwiseNotEquals,
+            TokenKind::BitwiseXorEquals => Self::BitwiseXorEquals,
+            TokenKind::BitwiseOrEquals => Self::BitwiseOrEquals,
+            TokenKind::BitwiseAndEquals => Self::BitwiseAndEquals,
+            TokenKind::LogicalNotEquals => Self::LogicalNotEquals,
+            TokenKind::ExponentiationEquals => Self::ExponentiationEquals,
+            TokenKind::LeftShiftEquals => Self::LeftShiftEquals,
+            TokenKind::RightShiftEquals => Self::RightShiftEquals,
+            TokenKind::LogicalOrEquals => Self::LogicalOrEquals,
+            TokenKind::LogicalAndEquals => Self::LogicalAndEquals,
             _ => {
                 panic!("Invalid assignment operator {:?}", node.kind);
             }
@@ -791,7 +785,7 @@ mod tests {
 
         let ast = parse_string(INPUT.to_owned()).unwrap_or_else(|e| panic!("{e}"));
 
-        let expected = LeekAst {
+        let expected = Ast {
             source_file: SourceFile {
                 path: None,
                 content: INPUT.to_owned(),
@@ -831,7 +825,7 @@ mod tests {
 
         let ast = parse_string(INPUT.to_owned()).unwrap_or_else(|e| panic!("{e}"));
 
-        let expected = LeekAst {
+        let expected = Ast {
             source_file: SourceFile {
                 path: None,
                 content: INPUT.to_owned(),
@@ -871,7 +865,7 @@ mod tests {
 
         let ast = parse_string(INPUT.to_owned()).unwrap_or_else(|e| panic!("{e}"));
 
-        let expected = LeekAst {
+        let expected = Ast {
             source_file: SourceFile {
                 path: None,
                 content: INPUT.to_owned(),
@@ -911,7 +905,7 @@ mod tests {
 
         let ast = parse_string(INPUT.to_owned()).unwrap_or_else(|e| panic!("{e}"));
 
-        let expected = LeekAst {
+        let expected = Ast {
             source_file: SourceFile {
                 path: None,
                 content: INPUT.to_owned(),
@@ -950,7 +944,7 @@ mod tests {
 
         let ast = parse_string(INPUT.to_owned()).unwrap_or_else(|e| panic!("{e}"));
 
-        let expected = LeekAst {
+        let expected = Ast {
             source_file: SourceFile {
                 path: None,
                 content: INPUT.to_owned(),
@@ -998,7 +992,7 @@ mod tests {
 
         let ast = parse_string(INPUT.to_owned()).unwrap_or_else(|e| panic!("{e}"));
 
-        let expected = LeekAst {
+        let expected = Ast {
             source_file: SourceFile {
                 path: None,
                 content: INPUT.to_owned(),
@@ -1038,7 +1032,7 @@ mod tests {
 
         let ast = parse_string(INPUT.to_owned()).unwrap_or_else(|e| panic!("{e}"));
 
-        let expected = LeekAst {
+        let expected = Ast {
             source_file: SourceFile {
                 path: None,
                 content: INPUT.to_owned(),
@@ -1081,7 +1075,7 @@ mod tests {
 
         let ast = parse_string(INPUT.to_owned()).unwrap_or_else(|e| panic!("{e}"));
 
-        let expected = LeekAst {
+        let expected = Ast {
             source_file: SourceFile {
                 path: None,
                 content: INPUT.to_owned(),

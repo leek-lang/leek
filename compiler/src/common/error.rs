@@ -9,7 +9,7 @@ use crate::{
 // TODO: Refactor with thiserror
 
 #[derive(Debug)]
-pub enum LeekCompilerError {
+pub enum CompilerError {
     FileReadError(FileReadError),         // File -> Chars
     LexerError(LexerError),               // Chars -> Tokens
     ParserError(ParserError),             // Tokens -> Parse Tree
@@ -19,7 +19,7 @@ pub enum LeekCompilerError {
     CodeGenError(CodeGenError),           // LIR -> ASM
 }
 
-impl LeekCompilerError {
+impl CompilerError {
     /// Should print to the stderr and exit with a non-zero exit code
     pub fn report(&self) -> ! {
         eprintln!("{self}");
@@ -28,18 +28,18 @@ impl LeekCompilerError {
     }
 }
 
-impl Display for LeekCompilerError {
+impl Display for CompilerError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            LeekCompilerError::FileReadError(e) => write!(f, "File Read Error: \n{e}"),
-            LeekCompilerError::LexerError(e) => write!(f, "Lexer Error: \n{e}"),
-            LeekCompilerError::ParserError(e) => {
+            CompilerError::FileReadError(e) => write!(f, "File Read Error: \n{e}"),
+            CompilerError::LexerError(e) => write!(f, "Lexer Error: \n{e}"),
+            CompilerError::ParserError(e) => {
                 write!(
                     f,
                     "Parser Error: {e}\n=================================\n\n{e:#?}\n"
                 )
             }
-            LeekCompilerError::TypeCheckingError(e) => {
+            CompilerError::TypeCheckingError(e) => {
                 write!(
                     f,
                     "Type Error: \n{e}\n=================================\n\n{e:#?}\n"
@@ -51,26 +51,26 @@ impl Display for LeekCompilerError {
     }
 }
 
-impl From<FileReadError> for LeekCompilerError {
+impl From<FileReadError> for CompilerError {
     fn from(error: FileReadError) -> Self {
-        LeekCompilerError::FileReadError(error)
+        CompilerError::FileReadError(error)
     }
 }
 
-impl From<LexerError> for LeekCompilerError {
+impl From<LexerError> for CompilerError {
     fn from(error: LexerError) -> Self {
-        LeekCompilerError::LexerError(error)
+        CompilerError::LexerError(error)
     }
 }
 
-impl From<ParserError> for LeekCompilerError {
+impl From<ParserError> for CompilerError {
     fn from(error: ParserError) -> Self {
-        LeekCompilerError::ParserError(error)
+        CompilerError::ParserError(error)
     }
 }
 
-impl From<CodeGenError> for LeekCompilerError {
+impl From<CodeGenError> for CompilerError {
     fn from(error: CodeGenError) -> Self {
-        LeekCompilerError::CodeGenError(error)
+        CompilerError::CodeGenError(error)
     }
 }

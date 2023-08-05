@@ -41,7 +41,7 @@ pub enum EmitMode {
     AssemblyFile,
 }
 
-pub struct LeekCompilerConfig {
+pub struct CompilerConfig {
     pub opt_level: OptimizationLevel,
     pub build_mode: BuildMode,
     pub emit_mode: EmitMode,

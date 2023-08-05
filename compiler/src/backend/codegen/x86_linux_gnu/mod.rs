@@ -1,14 +1,14 @@
 use indoc::indoc;
 use std::{path::Path, process::Command};
 
-use crate::{backend::LeekCompilerConfig, frontend::ast::LeekAst};
+use crate::{backend::CompilerConfig, frontend::ast::Ast};
 
 use super::CodeGenerator;
 
 pub struct CodeGeneratorX86LinuxGNU;
 
 impl CodeGenerator for CodeGeneratorX86LinuxGNU {
-    fn generate_assembly(&self, _ast: LeekAst, _compiler_options: &LeekCompilerConfig) -> String {
+    fn generate_assembly(&self, _ast: Ast, _compiler_options: &CompilerConfig) -> String {
         String::from(indoc! {"
             global main
     

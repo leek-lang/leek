@@ -3,12 +3,12 @@ use std::path::PathBuf;
 use clap::Parser;
 use leek::{
     backend::codegen::CodeGenTarget,
-    common::config::{BuildMode, EmitMode, LeekCompilerConfig, OptimizationLevel},
+    common::config::{BuildMode, CompilerConfig, EmitMode, OptimizationLevel},
 };
 
 #[derive(Parser, Debug)]
 #[command(author, version, about = "A bootstrap compiler for the Leek language", long_about = None)]
-struct LeekCompilerArgs {
+struct CompilerArgs {
     #[arg(required = true)]
     input_files: Vec<PathBuf>,
     #[arg(short, long, value_enum, value_name = "EMIT_MODE", default_value_t = EmitMode::default(), help = "Specifies what kind of output to generate")]
@@ -27,9 +27,9 @@ struct LeekCompilerArgs {
     opt_level: OptimizationLevel,
 }
 
-impl From<LeekCompilerArgs> for LeekCompilerConfig {
-    fn from(args: LeekCompilerArgs) -> Self {
-        LeekCompilerConfig {
+impl From<CompilerArgs> for CompilerConfig {
+    fn from(args: CompilerArgs) -> Self {
+        CompilerConfig {
             opt_level: args.opt_level,
             build_mode: if args.release {
                 BuildMode::Release
@@ -46,10 +46,10 @@ impl From<LeekCompilerArgs> for LeekCompilerConfig {
 
 fn main() {
     // Get the command line arguments
-    let args = LeekCompilerArgs::parse();
+    let args = CompilerArgs::parse();
 
     // Convert to the global config struct
-    let config: LeekCompilerConfig = args.into();
+    let config: CompilerConfig = args.into();
 
     for file in &config.input_files {
         let ast = leek::frontend::parse_file(file.into()).unwrap_or_else(|e| e.report());

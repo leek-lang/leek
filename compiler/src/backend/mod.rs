@@ -4,10 +4,10 @@ use itertools::Itertools;
 
 use crate::{
     common::{
-        config::{EmitMode, LeekCompilerConfig},
-        error::LeekCompilerError,
+        config::{CompilerConfig, EmitMode},
+        error::CompilerError,
     },
-    frontend::ast::LeekAst,
+    frontend::ast::Ast,
 };
 
 use self::codegen::{CodeGenTarget, CodeGenerator};
@@ -33,10 +33,10 @@ macro_rules! display_buffer {
 }
 
 pub fn compile_ast(
-    ast: LeekAst,
-    compiler_options: &LeekCompilerConfig,
+    ast: Ast,
+    compiler_options: &CompilerConfig,
     target: CodeGenTarget,
-) -> Result<(), LeekCompilerError> {
+) -> Result<(), CompilerError> {
     let code_generator = target.get_code_generator();
 
     // If the output name is specified, use that.
