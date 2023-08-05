@@ -213,7 +213,7 @@ pub struct StructFieldAccess {
 
 #[derive(Debug, PartialEq)]
 pub struct StructMethodCall {
-    pub identifier: QualifiedIdentifier,
+    pub callee: Box<Expression>,
     pub method: String,
     pub arguments: Vec<Expression>,
 }
