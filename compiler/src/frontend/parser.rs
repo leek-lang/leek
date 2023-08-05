@@ -3,11 +3,12 @@ use std::fmt::Display;
 
 use crate::{
     common::error::CompilerError,
-    frontend::lexer::{IntegerLiteralKind, KeywordKind, Lexer, Token, TokenKind},
-    frontend::position::{SourceFile, Span},
+    frontend::lexer::{
+        token::{IntegerLiteralKind, KeywordKind, Token, TokenKind},
+        Lexer,
+    },
+    frontend::position::{highlight_span, SourceFile, Span},
 };
-
-use super::position::highlight_span;
 
 #[derive(Debug)]
 pub struct ParseTree {
@@ -1267,8 +1268,11 @@ mod test {
     use ansi_term::Color;
 
     use crate::{
-        frontend::lexer::{IntegerLiteralKind, KeywordKind, Lexer, Token, TokenKind},
-        frontend::reader::FileReader,
+        frontend::lexer::Lexer,
+        frontend::{
+            lexer::token::{IntegerLiteralKind, KeywordKind, Token, TokenKind},
+            reader::FileReader,
+        },
     };
 
     use super::{ParseTreeNode, ParseTreeNodeNonTerminal, ParseTreeNonTerminalKind, Parser};

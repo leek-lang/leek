@@ -9,7 +9,7 @@ use crate::{
             StructInitialization, StructMethodCall, UnaryExpression, VariableDeclaration,
             VariableDeclarationKind,
         },
-        lexer::{IntegerLiteralKind, KeywordKind, Token, TokenKind},
+        lexer::token::{IntegerLiteralKind, KeywordKind, Token, TokenKind},
         parser::{ParseTree, ParseTreeNode, ParseTreeNodeNonTerminal, ParseTreeNonTerminalKind},
     },
 };
