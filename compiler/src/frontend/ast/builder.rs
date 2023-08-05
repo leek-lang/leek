@@ -15,7 +15,7 @@ use crate::{
 };
 
 use super::{
-    Expression, IntegerKind, LeekAst, Literal, LiteralKind, PrimitiveKind, Program,
+    Expression, IntegerKind, LeekAst, Literal, LiteralKind, PrimitiveKind, ProgramPart,
     QualifiedIdentifier, Type, VariableAssignment,
 };
 
@@ -25,17 +25,9 @@ impl LeekAst {
     /// This function is infallible. If there is an error, it is due to a bug in the parser or the builder.
     /// As such, this function will panic if there is an error.
     pub fn build_from(parse_tree: ParseTree) -> Self {
-        let root = Program {
-            constant_variables: vec![],
-            static_variables: vec![],
-            function_definitions: vec![],
-            struct_definitions: vec![],
-            enum_definitions: vec![],
-        };
-
         let mut ast = Self {
             source_file: parse_tree.source_file.clone(),
-            root,
+            items: Vec::new(),
         };
 
         ast.populate(parse_tree);
@@ -49,26 +41,31 @@ impl LeekAst {
 
         for node in &program.children {
             let ParseTreeNode::NonTerminal(top_level_node) = node else {
-                panic!("Expected top level node to be non-terminal, found {:?}", node);
+                panic!(
+                    "Expected top level node to be non-terminal, found {:?}",
+                    node
+                );
             };
 
             match top_level_node.kind {
-                ParseTreeNonTerminalKind::ConstantVariableDeclaration => self
-                    .root
-                    .constant_variables
-                    .push(VariableDeclaration::from_node(top_level_node)),
-                ParseTreeNonTerminalKind::StaticVariableDeclaration => self
-                    .root
-                    .static_variables
-                    .push(VariableDeclaration::from_node(top_level_node)),
-                ParseTreeNonTerminalKind::FunctionDefinition => self
-                    .root
-                    .function_definitions
-                    .push(FunctionDefinition::from_node(top_level_node)),
-                ParseTreeNonTerminalKind::StructDefinition => self
-                    .root
-                    .struct_definitions
-                    .push(StructDefinition::from_node(top_level_node)),
+                ParseTreeNonTerminalKind::ConstantVariableDeclaration => self.items.push(
+                    ProgramPart::ConstantVariable(VariableDeclaration::from_node(top_level_node)),
+                ),
+                ParseTreeNonTerminalKind::StaticVariableDeclaration => {
+                    self.items
+                        .push(ProgramPart::StaticVariable(VariableDeclaration::from_node(
+                            top_level_node,
+                        )))
+                }
+                ParseTreeNonTerminalKind::FunctionDefinition => self.items.push(
+                    ProgramPart::FunctionDefinition(FunctionDefinition::from_node(top_level_node)),
+                ),
+                ParseTreeNonTerminalKind::StructDefinition => {
+                    self.items
+                        .push(ProgramPart::StructDefinition(StructDefinition::from_node(
+                            top_level_node,
+                        )))
+                }
                 _ => panic!("Unexpected top level node: {:?}", top_level_node),
             }
         }
@@ -288,8 +285,8 @@ impl FromNode for Expression {
 impl From<LeekToken> for IntegerKind {
     fn from(value: LeekToken) -> Self {
         let LeekTokenKind::IntegerLiteral(integer) = value.kind else {
-           panic!("Expected integer literal, found {:?}", value.kind)
-       };
+            panic!("Expected integer literal, found {:?}", value.kind)
+        };
 
         // TODO: add support for type specifiers like `u32` and `i32`
 
@@ -799,30 +796,24 @@ mod tests {
                 path: None,
                 content: INPUT.to_owned(),
             },
-            root: Program {
-                constant_variables: vec![],
-                static_variables: vec![],
-                function_definitions: vec![FunctionDefinition {
-                    name: "main".to_owned(),
-                    struct_identifier: None,
-                    parameters: vec![],
-                    return_type: Type::Primitive(PrimitiveKind::Void),
-                    body: Block {
-                        statements: vec![Statement::FunctionCall(FunctionCallExpression {
-                            identifier: QualifiedIdentifier::new(None, "println".to_owned()),
-                            arguments: vec![Expression::Atom(Atom::Literal(Literal {
-                                kind: LiteralKind::String("\"Hello, world!\"".to_owned()),
-                                span: Span::new(
-                                    Position { row: 1, col: 12 },
-                                    Position { row: 1, col: 27 },
-                                ),
-                            }))],
-                        })],
-                    },
-                }],
-                struct_definitions: vec![],
-                enum_definitions: vec![],
-            },
+            items: vec![ProgramPart::FunctionDefinition(FunctionDefinition {
+                name: "main".to_owned(),
+                struct_identifier: None,
+                parameters: vec![],
+                return_type: Type::Primitive(PrimitiveKind::Void),
+                body: Block {
+                    statements: vec![Statement::FunctionCall(FunctionCallExpression {
+                        identifier: QualifiedIdentifier::new(None, "println".to_owned()),
+                        arguments: vec![Expression::Atom(Atom::Literal(Literal {
+                            kind: LiteralKind::String("\"Hello, world!\"".to_owned()),
+                            span: Span::new(
+                                Position { row: 1, col: 12 },
+                                Position { row: 1, col: 27 },
+                            ),
+                        }))],
+                    })],
+                },
+            })],
         };
 
         assert_ast_eq!(ast, expected);
@@ -845,32 +836,26 @@ mod tests {
                 path: None,
                 content: INPUT.to_owned(),
             },
-            root: Program {
-                constant_variables: vec![],
-                static_variables: vec![],
-                function_definitions: vec![FunctionDefinition {
-                    name: "main".to_owned(),
-                    struct_identifier: None,
-                    parameters: vec![],
-                    return_type: Type::Primitive(PrimitiveKind::Void),
-                    body: Block {
-                        statements: vec![Statement::Block(Block {
-                            statements: vec![Statement::FunctionCall(FunctionCallExpression {
-                                identifier: QualifiedIdentifier::new(None, "println".to_owned()),
-                                arguments: vec![Expression::Atom(Atom::Literal(Literal {
-                                    kind: LiteralKind::String("\"Hello, world!\"".to_owned()),
-                                    span: Span::new(
-                                        Position { row: 2, col: 16 },
-                                        Position { row: 2, col: 31 },
-                                    ),
-                                }))],
-                            })],
+            items: vec![ProgramPart::FunctionDefinition(FunctionDefinition {
+                name: "main".to_owned(),
+                struct_identifier: None,
+                parameters: vec![],
+                return_type: Type::Primitive(PrimitiveKind::Void),
+                body: Block {
+                    statements: vec![Statement::Block(Block {
+                        statements: vec![Statement::FunctionCall(FunctionCallExpression {
+                            identifier: QualifiedIdentifier::new(None, "println".to_owned()),
+                            arguments: vec![Expression::Atom(Atom::Literal(Literal {
+                                kind: LiteralKind::String("\"Hello, world!\"".to_owned()),
+                                span: Span::new(
+                                    Position { row: 2, col: 16 },
+                                    Position { row: 2, col: 31 },
+                                ),
+                            }))],
                         })],
-                    },
-                }],
-                struct_definitions: vec![],
-                enum_definitions: vec![],
-            },
+                    })],
+                },
+            })],
         };
 
         assert_ast_eq!(ast, expected);
@@ -891,32 +876,26 @@ mod tests {
                 path: None,
                 content: INPUT.to_owned(),
             },
-            root: Program {
-                constant_variables: vec![],
-                static_variables: vec![],
-                function_definitions: vec![FunctionDefinition {
-                    name: "main".to_owned(),
-                    struct_identifier: None,
-                    parameters: vec![],
-                    return_type: Type::Primitive(PrimitiveKind::Void),
-                    body: Block {
-                        statements: vec![Statement::VariableDeclaration(VariableDeclaration {
-                            kind: VariableDeclarationKind::Local,
-                            identifier: "a".to_owned(),
-                            ty: None,
-                            value: Expression::Atom(Atom::Literal(Literal {
-                                kind: LiteralKind::Integer(IntegerKind::I32(100)),
-                                span: Span::new(
-                                    Position { row: 1, col: 13 },
-                                    Position { row: 1, col: 16 },
-                                ),
-                            })),
-                        })],
-                    },
-                }],
-                struct_definitions: vec![],
-                enum_definitions: vec![],
-            },
+            items: vec![ProgramPart::FunctionDefinition(FunctionDefinition {
+                name: "main".to_owned(),
+                struct_identifier: None,
+                parameters: vec![],
+                return_type: Type::Primitive(PrimitiveKind::Void),
+                body: Block {
+                    statements: vec![Statement::VariableDeclaration(VariableDeclaration {
+                        kind: VariableDeclarationKind::Local,
+                        identifier: "a".to_owned(),
+                        ty: None,
+                        value: Expression::Atom(Atom::Literal(Literal {
+                            kind: LiteralKind::Integer(IntegerKind::I32(100)),
+                            span: Span::new(
+                                Position { row: 1, col: 13 },
+                                Position { row: 1, col: 16 },
+                            ),
+                        })),
+                    })],
+                },
+            })],
         };
 
         assert_ast_eq!(ast, expected);
@@ -937,31 +916,25 @@ mod tests {
                 path: None,
                 content: INPUT.to_owned(),
             },
-            root: Program {
-                constant_variables: vec![],
-                static_variables: vec![],
-                function_definitions: vec![FunctionDefinition {
-                    name: "main".to_owned(),
-                    struct_identifier: None,
-                    parameters: vec![],
-                    return_type: Type::Primitive(PrimitiveKind::Void),
-                    body: Block {
-                        statements: vec![Statement::VariableAssignment(VariableAssignment {
-                            identifier: QualifiedIdentifier::new(None, "a".to_owned()),
-                            operator: AssignmentOperator::PlusEquals,
-                            value: Expression::Atom(Atom::Literal(Literal {
-                                kind: LiteralKind::Integer(IntegerKind::I32(420)),
-                                span: Span::new(
-                                    Position { row: 1, col: 9 },
-                                    Position { row: 1, col: 12 },
-                                ),
-                            })),
-                        })],
-                    },
-                }],
-                struct_definitions: vec![],
-                enum_definitions: vec![],
-            },
+            items: vec![ProgramPart::FunctionDefinition(FunctionDefinition {
+                name: "main".to_owned(),
+                struct_identifier: None,
+                parameters: vec![],
+                return_type: Type::Primitive(PrimitiveKind::Void),
+                body: Block {
+                    statements: vec![Statement::VariableAssignment(VariableAssignment {
+                        identifier: QualifiedIdentifier::new(None, "a".to_owned()),
+                        operator: AssignmentOperator::PlusEquals,
+                        value: Expression::Atom(Atom::Literal(Literal {
+                            kind: LiteralKind::Integer(IntegerKind::I32(420)),
+                            span: Span::new(
+                                Position { row: 1, col: 9 },
+                                Position { row: 1, col: 12 },
+                            ),
+                        })),
+                    })],
+                },
+            })],
         };
 
         assert_ast_eq!(ast, expected);
@@ -982,40 +955,34 @@ mod tests {
                 path: None,
                 content: INPUT.to_owned(),
             },
-            root: Program {
-                constant_variables: vec![],
-                static_variables: vec![],
-                function_definitions: vec![FunctionDefinition {
-                    name: "add".to_owned(),
-                    struct_identifier: None,
-                    parameters: vec![
-                        FunctionParameter {
-                            identifier: "a".to_owned(),
-                            ty: Type::Primitive(PrimitiveKind::I32),
-                        },
-                        FunctionParameter {
-                            identifier: "b".to_owned(),
-                            ty: Type::Primitive(PrimitiveKind::I32),
-                        },
-                    ],
-                    return_type: Type::Primitive(PrimitiveKind::I32),
-                    body: Block {
-                        statements: vec![Statement::Yeet(Expression::BinaryExpression(
-                            BinaryExpression {
-                                binary_operator: BinaryOperator::Plus,
-                                lhs: Box::new(Expression::Atom(Atom::QualifiedIdentifier(
-                                    QualifiedIdentifier::new(None, "a".to_owned()),
-                                ))),
-                                rhs: Box::new(Expression::Atom(Atom::QualifiedIdentifier(
-                                    QualifiedIdentifier::new(None, "b".to_owned()),
-                                ))),
-                            },
-                        ))],
+            items: vec![ProgramPart::FunctionDefinition(FunctionDefinition {
+                name: "add".to_owned(),
+                struct_identifier: None,
+                parameters: vec![
+                    FunctionParameter {
+                        identifier: "a".to_owned(),
+                        ty: Type::Primitive(PrimitiveKind::I32),
                     },
-                }],
-                struct_definitions: vec![],
-                enum_definitions: vec![],
-            },
+                    FunctionParameter {
+                        identifier: "b".to_owned(),
+                        ty: Type::Primitive(PrimitiveKind::I32),
+                    },
+                ],
+                return_type: Type::Primitive(PrimitiveKind::I32),
+                body: Block {
+                    statements: vec![Statement::Yeet(Expression::BinaryExpression(
+                        BinaryExpression {
+                            binary_operator: BinaryOperator::Plus,
+                            lhs: Box::new(Expression::Atom(Atom::QualifiedIdentifier(
+                                QualifiedIdentifier::new(None, "a".to_owned()),
+                            ))),
+                            rhs: Box::new(Expression::Atom(Atom::QualifiedIdentifier(
+                                QualifiedIdentifier::new(None, "b".to_owned()),
+                            ))),
+                        },
+                    ))],
+                },
+            })],
         };
 
         assert_ast_eq!(ast, expected);
@@ -1036,32 +1003,26 @@ mod tests {
                 path: None,
                 content: INPUT.to_owned(),
             },
-            root: Program {
-                constant_variables: vec![],
-                static_variables: vec![],
-                function_definitions: vec![FunctionDefinition {
-                    name: "main".to_owned(),
-                    struct_identifier: None,
-                    parameters: vec![],
-                    return_type: Type::Primitive(PrimitiveKind::Void),
-                    body: Block {
-                        statements: vec![Statement::VariableDeclaration(VariableDeclaration {
-                            kind: VariableDeclarationKind::Local,
-                            identifier: "a".to_owned(),
-                            ty: None,
-                            value: Expression::Atom(Atom::Literal(Literal {
-                                kind: LiteralKind::Char('b'),
-                                span: Span::new(
-                                    Position { row: 1, col: 13 },
-                                    Position { row: 1, col: 16 },
-                                ),
-                            })),
-                        })],
-                    },
-                }],
-                struct_definitions: vec![],
-                enum_definitions: vec![],
-            },
+            items: vec![ProgramPart::FunctionDefinition(FunctionDefinition {
+                name: "main".to_owned(),
+                struct_identifier: None,
+                parameters: vec![],
+                return_type: Type::Primitive(PrimitiveKind::Void),
+                body: Block {
+                    statements: vec![Statement::VariableDeclaration(VariableDeclaration {
+                        kind: VariableDeclarationKind::Local,
+                        identifier: "a".to_owned(),
+                        ty: None,
+                        value: Expression::Atom(Atom::Literal(Literal {
+                            kind: LiteralKind::Char('b'),
+                            span: Span::new(
+                                Position { row: 1, col: 13 },
+                                Position { row: 1, col: 16 },
+                            ),
+                        })),
+                    })],
+                },
+            })],
         };
 
         assert_ast_eq!(ast, expected);
@@ -1082,35 +1043,29 @@ mod tests {
                 path: None,
                 content: INPUT.to_owned(),
             },
-            root: Program {
-                constant_variables: vec![],
-                static_variables: vec![],
-                function_definitions: vec![FunctionDefinition {
-                    name: "main".to_owned(),
-                    struct_identifier: None,
-                    parameters: vec![],
-                    return_type: Type::Primitive(PrimitiveKind::Void),
-                    body: Block {
-                        statements: vec![Statement::VariableDeclaration(VariableDeclaration {
-                            kind: VariableDeclarationKind::Local,
-                            identifier: "a".to_owned(),
-                            ty: None,
-                            value: Expression::UnaryExpression(UnaryExpression {
-                                unary_operator: UnaryOperator::BitwiseNot,
-                                expression: Box::new(Expression::Atom(Atom::Literal(Literal {
-                                    kind: LiteralKind::Integer(IntegerKind::I32(69)),
-                                    span: Span::new(
-                                        Position { row: 1, col: 14 },
-                                        Position { row: 1, col: 16 },
-                                    ),
-                                }))),
-                            }),
-                        })],
-                    },
-                }],
-                struct_definitions: vec![],
-                enum_definitions: vec![],
-            },
+            items: vec![ProgramPart::FunctionDefinition(FunctionDefinition {
+                name: "main".to_owned(),
+                struct_identifier: None,
+                parameters: vec![],
+                return_type: Type::Primitive(PrimitiveKind::Void),
+                body: Block {
+                    statements: vec![Statement::VariableDeclaration(VariableDeclaration {
+                        kind: VariableDeclarationKind::Local,
+                        identifier: "a".to_owned(),
+                        ty: None,
+                        value: Expression::UnaryExpression(UnaryExpression {
+                            unary_operator: UnaryOperator::BitwiseNot,
+                            expression: Box::new(Expression::Atom(Atom::Literal(Literal {
+                                kind: LiteralKind::Integer(IntegerKind::I32(69)),
+                                span: Span::new(
+                                    Position { row: 1, col: 14 },
+                                    Position { row: 1, col: 16 },
+                                ),
+                            }))),
+                        }),
+                    })],
+                },
+            })],
         };
 
         assert_ast_eq!(ast, expected);
@@ -1131,42 +1086,36 @@ mod tests {
                 path: None,
                 content: INPUT.to_owned(),
             },
-            root: Program {
-                constant_variables: vec![],
-                static_variables: vec![],
-                function_definitions: vec![FunctionDefinition {
-                    name: "main".to_owned(),
-                    struct_identifier: None,
-                    parameters: vec![],
-                    return_type: Type::Primitive(PrimitiveKind::Void),
-                    body: Block {
-                        statements: vec![Statement::VariableDeclaration(VariableDeclaration {
-                            kind: VariableDeclarationKind::Local,
-                            identifier: "a".to_owned(),
-                            ty: None,
-                            value: Expression::BinaryExpression(BinaryExpression {
-                                binary_operator: BinaryOperator::Minus,
-                                lhs: Box::new(Expression::Atom(Atom::Literal(Literal {
-                                    kind: LiteralKind::Integer(IntegerKind::I32(69)),
-                                    span: Span::new(
-                                        Position { row: 1, col: 13 },
-                                        Position { row: 1, col: 15 },
-                                    ),
-                                }))),
-                                rhs: Box::new(Expression::Atom(Atom::Literal(Literal {
-                                    kind: LiteralKind::Integer(IntegerKind::I32(420)),
-                                    span: Span::new(
-                                        Position { row: 1, col: 18 },
-                                        Position { row: 1, col: 21 },
-                                    ),
-                                }))),
-                            }),
-                        })],
-                    },
-                }],
-                struct_definitions: vec![],
-                enum_definitions: vec![],
-            },
+            items: vec![ProgramPart::FunctionDefinition(FunctionDefinition {
+                name: "main".to_owned(),
+                struct_identifier: None,
+                parameters: vec![],
+                return_type: Type::Primitive(PrimitiveKind::Void),
+                body: Block {
+                    statements: vec![Statement::VariableDeclaration(VariableDeclaration {
+                        kind: VariableDeclarationKind::Local,
+                        identifier: "a".to_owned(),
+                        ty: None,
+                        value: Expression::BinaryExpression(BinaryExpression {
+                            binary_operator: BinaryOperator::Minus,
+                            lhs: Box::new(Expression::Atom(Atom::Literal(Literal {
+                                kind: LiteralKind::Integer(IntegerKind::I32(69)),
+                                span: Span::new(
+                                    Position { row: 1, col: 13 },
+                                    Position { row: 1, col: 15 },
+                                ),
+                            }))),
+                            rhs: Box::new(Expression::Atom(Atom::Literal(Literal {
+                                kind: LiteralKind::Integer(IntegerKind::I32(420)),
+                                span: Span::new(
+                                    Position { row: 1, col: 18 },
+                                    Position { row: 1, col: 21 },
+                                ),
+                            }))),
+                        }),
+                    })],
+                },
+            })],
         };
 
         assert_ast_eq!(ast, expected);

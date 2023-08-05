@@ -7,22 +7,22 @@ pub mod builder;
 #[derive(Debug)]
 pub struct LeekAst {
     pub source_file: SourceFile,
-    pub root: Program,
+    pub items: Vec<ProgramPart>,
 }
 
 impl PartialEq for LeekAst {
     fn eq(&self, other: &Self) -> bool {
-        self.root == other.root
+        self.items == other.items
     }
 }
 
 #[derive(Debug, PartialEq)]
-pub struct Program {
-    pub constant_variables: Vec<VariableDeclaration>,
-    pub static_variables: Vec<VariableDeclaration>,
-    pub function_definitions: Vec<FunctionDefinition>,
-    pub struct_definitions: Vec<StructDefinition>,
-    pub enum_definitions: Vec<EnumDefinition>,
+pub enum ProgramPart {
+    ConstantVariable(VariableDeclaration),
+    StaticVariable(VariableDeclaration),
+    FunctionDefinition(FunctionDefinition),
+    StructDefinition(StructDefinition),
+    EnumDefinition(EnumDefinition),
 }
 
 #[derive(Debug, PartialEq)]
