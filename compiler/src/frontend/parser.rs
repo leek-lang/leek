@@ -74,6 +74,7 @@ macro_rules! terminal {
     };
 }
 
+#[allow(unused_macros)]
 macro_rules! non_terminal {
     ($kind:expr, $children:expr) => {
         ParseTreeNode::NonTerminal(ParseTreeNodeNonTerminal {
@@ -211,6 +212,7 @@ impl LeekParser {
     }
 
     /// Peeks the nth token or returns an error if there are none left
+    #[allow(unused)]
     fn peek_nth_expect(&self, n: usize) -> Result<&LeekToken, LeekCompilerError> {
         self.lexer.peek_nth(n)?.ok_or_else(|| {
             ParserError {
