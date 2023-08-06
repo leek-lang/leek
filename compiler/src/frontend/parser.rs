@@ -137,17 +137,17 @@ impl Display for ParserError {
                 f,
                 "Unexpected token {:?}. Expected one of: {:?}",
                 found, expected
-            )?,
+            ),
             ParserErrorKind::UnexpectedKeyword { expected, found } => writeln!(
                 f,
                 "Unexpected keyword {:?}. Expected one of: {:?}",
                 found, expected
-            )?,
-            ParserErrorKind::UnexpectedEndOfInput => writeln!(f, "Unexpected end of input.")?,
+            ),
+            ParserErrorKind::UnexpectedEndOfInput => writeln!(f, "Unexpected end of input."),
             ParserErrorKind::IndexIntoNonIdentifier => {
-                writeln!(f, "Cannot access field of non-struct object.")?
+                writeln!(f, "Cannot access field of non-struct object.")
             }
-        }
+        }?;
 
         highlight_span(f, &self.source_file, self.span.clone())?;
 

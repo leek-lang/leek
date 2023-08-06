@@ -60,6 +60,18 @@ impl Span {
         Self { start, end }
     }
 
+    pub fn from_position(pos: &Position) -> Self {
+        let end = Position {
+            row: pos.row,
+            col: pos.col + 1,
+        };
+        
+        Self {
+            start: pos.clone(),
+            end,
+        }
+    }
+
     pub fn start(&self) -> &Position {
         &self.start
     }

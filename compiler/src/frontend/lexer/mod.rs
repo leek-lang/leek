@@ -9,10 +9,12 @@ use crate::{
     frontend::reader::CharacterReader,
 };
 
-use self::token::{TokenKind, IntegerLiteralKind, Token, KeywordKind};
+use self::token::{IntegerLiteralKind, KeywordKind, Token, TokenKind};
 
-pub mod token;
+use super::position::highlight_span;
+
 mod test;
+pub mod token;
 
 /// Represents an error when lexing a file
 #[derive(Debug)]
@@ -57,55 +59,6 @@ pub enum LexerErrorKind {
 
 impl Display for LexerError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(
-            f,
-            "{}:{}",
-            match &self.source_file.path {
-                Some(file) => file
-                    .canonicalize()
-                    .expect("Could not canonicalize file path")
-                    .to_str()
-                    .expect("Could not convert file path to string")
-                    .trim_start_matches(r"\\?\")
-                    .to_owned(),
-                None => "<literal string>".to_owned(),
-            },
-            self.position
-        )?;
-
-        let lines: Vec<_> = self.source_file.content.lines().collect();
-
-        // Print the lines around and including the one with the error
-        let start = if self.position.row < 2 {
-            0
-        } else {
-            self.position.row - 2
-        } as usize;
-
-        // Print each line and the line number
-        for (n, line) in lines[start..(self.position.row + 1) as usize]
-            .iter()
-            .enumerate()
-        {
-            writeln!(f, "{:>3}: {}", n + start + 1, line)?;
-        }
-
-        // Print the space before the highlight
-        for _ in 0..self.position.col + 5 {
-            write!(f, " ")?;
-        }
-
-        // Print the underline highlight
-        writeln!(f, "^")?;
-
-        // Print the space before "here"
-        for _ in 0..self.position.col + 5 {
-            write!(f, " ")?;
-        }
-
-        writeln!(f, "here")?;
-        writeln!(f)?;
-
         match &self.kind {
             LexerErrorKind::UnexpectedChar(c) => writeln!(f, "Unexpected char `{c}`"),
             LexerErrorKind::UnclosedWrappedLiteral(kind) => {
@@ -126,7 +79,11 @@ impl Display for LexerError {
             LexerErrorKind::UnexpectedCharactersInIntegerLiteral(kind) => {
                 writeln!(f, "Unexpected characters inside {kind:?} integer literal")
             }
-        }
+        }?;
+
+        highlight_span(f, &self.source_file, Span::from_position(&self.position))?;
+
+        Ok(())
     }
 }
 
