@@ -30,7 +30,7 @@ The middle of the compiler is where a majority of the work is done. Here the pro
 
 ### HIR (High-Level Intermediary Representation)
 
-The HIR, or High-Level Intermediate representation, is the form of the program that is nicer to work with for static analysis. Local variables are hoisted to the top of functions, and identifiers are checked for existence.
+The HIR, or High-Level Intermediate representation, is the form of the program that is nicer to work with for static analysis. Local variables are hoisted to the top of functions, and identifiers and namespaces are checked for existence.
 
 ### Type Checking
 
