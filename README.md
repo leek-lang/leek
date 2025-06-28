@@ -12,7 +12,7 @@ In modern times, there are many strategies for managing memory such as reference
 However, with many gigabytes of RAM now an established standard in new systems, why bother worrying about memory at all?
 
 Leek uses a bleeding edge and _blazingly fast_ memory management strategy called "exiting".
-Memory is allocated as needed and avoids slow de-allocation calls by not doing them.
+Leek allocates memory as needed and avoids slow de-allocation calls by simply not doing them.
 Your operating system is more than capable of freeing the used memory when your program exits, so why bother incurring wasteful runtime cost?
 
 Leek enables you to move fast and run away from your problems. Even if you manage to use up all of the available system memory, modern operating systems have sophisticated swap file implementations. This allows you to use disk space as RAM when there is no physical memory left.
