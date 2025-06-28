@@ -19,7 +19,7 @@ Leek enables you to move fast and run away from your problems. Even if you manag
 
 ## Edge Ready
 
-Modern serverices and applications don't keep a persistent server running. Thats old school! Now, serverless edge functions are dominating the industry with low deployment costs and automatic scaling.
+Modern services and applications don't keep a persistent server running. Thats old school! Now, serverless edge functions are dominating the industry with low deployment costs and automatic scaling.
 
 Leek's memory management ideology aligns very well with the edge computing model. Leek starts fast and doesn't worry about deallocating memory since the instance will only live for a very short period of time. This makes Leek a great choice for your next serverless edge application (once an HTTP package is implemented).
 
